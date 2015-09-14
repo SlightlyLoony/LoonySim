@@ -1,0 +1,34 @@
+{
+  name: test,
+  meta: null,
+  components: [
+    {
+      name: R1,
+      type: resistor,
+      value: 1000,
+      tolerance: { both: 10, percent: true },
+      power_dissipation: 10,
+      kind: wire_wound
+    },
+    {
+      name: R2,
+      type: resistor,
+      value: 4700,
+      tolerance: { both: 10, percent: true },
+      power_dissipation: 0.5,
+      kind: thick_film
+    },
+    {
+      name: V1,
+      type: fixed_dc_voltage_source,
+      value: 5,
+      tolerance: { both: 3, percent: true }
+    }
+  ],
+  nets: [
+    { name: net1, connections:[ {component: "R1", terminal: "1"}, {component: "R2", terminal: "2"} ] },
+    { name: net2, connections:[ {component: "R2", terminal: "1"}, {component: "V1", terminal: "plus"} ] },
+    { name: net3, connections:[ {component: "R2", terminal: "2"}, {component: "V1", terminal: "minus"} ] }
+  ],
+  monitors:[]
+}

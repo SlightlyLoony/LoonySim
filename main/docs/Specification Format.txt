@@ -1,0 +1,78 @@
+Circuit specification format
+
+General
+
+    A circuit specification is a valid JSON text file in a special format.  That format is defined in this document.
+
+    At the highest level, the file represents a JSON object (and a corresponding Java object) with the following properties:
+        {
+            name: ...,
+            meta: { ... },
+            components: [ ... ],
+            monitors: [ ... ]
+        }
+
+    The name is the name of the circuit.
+
+    The meta object defines attributes of the circuit itself, rather than of some piece of the circuit.
+
+    The components array defines all the components of the circuit and the nets (conductors) that interconnect them.
+
+    The monitors array defines all the points where voltage or current (or both) are to be monitored while making a simulation run.
+
+
+   Comments may be added to a line by preceding them with either an asterisk ("*") or a pair of forward slashes ("//").  The asterisk or forward
+   slashes and all subsequent characters on the line will be ignored.
+
+   Strings that are case-sensitive or contain whitespace must be quoted, using double-quote characters (").  If the string needs to contain a double-
+   quote character, use two double-quotes.
+      valid examples:
+         "this is a quoted STRING"
+         "this is a quoted string that contains a double-quote ("")"
+
+   Parameter values may not contain spaces unless they are in a quoted string.  Thus, "carbon_film" is valid, but "carbon film" is not.
+      valid examples:
+         Kcarbon_film
+         K"carbon film"
+      invalid example:
+         Kcarbon film
+
+   Required items are enclosed in square brackets ([]) below; they must be included in the given order.
+   Optional items are enclosed in angle brackets (<>> below; they may be included in any order.
+
+   Elements are not case-sensitive in general.  For example, "r1" and "R1" are equivalent.  The only exception to this is in the case of quoted
+   strings, which ARE case-sensitive.
+
+   Tolerances can be specified as a single value or percentage (as T5 or T10%).  In this case, the tolerance is symmetrical about the nominal value.
+   Tolerances may also be specified as a pair of values or percentages (as T-5,10 or T-20%,+50%).  In this case, of course, the tolerance may be
+   asymmetrical about the nominal value.  When the tolerance is specified as a value, it is in the same units as the component's value (e.g., ohms
+   for resistors, farads for capacitors, etc.).
+
+   Net names may start with any letter or number, any of "+-~_$", and may contain punctuation (but not spaces).  Thus, "3", "Net3", "Ground", "Vcc",
+   "-12V", and "V+5" are all valid net names.
+
+   Value magnitude modifiers compatible with SPICE are accepted:
+      Suffix   Scale
+      -------- ---- -------------------- ------
+      T        E+12 1,000,000,000,000    Tera
+      G        E+09 1,000,000,000        Giga
+      X or MEG E+06 1,000,000            Mega
+      K        E+03 1,000                Kilo
+      M        E-03 0.001                Milli
+      U        E-06 0.000001             Micro
+      N        E-09 0.000000001          Nano
+      P        E-12 0.000000000001       Pico
+      F        E-15 0.000000000000001    Femto
+
+
+Resistor
+   R[name] [net, +side] [net, -side] [value] T<tolerance> P<power> K<kind>
+
+   defaults:
+      Tolerance: +/- 10%
+      Power:     0.25 watt
+      Kind:      carbon_film
+
+   examples:
+      R23 N34 Ground 1.2K T5% P0.125 Kmetal_film
+      RX14 N1 Vcc 2.7MEG P5
