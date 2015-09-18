@@ -1,10 +1,6 @@
 package com.slightlyloony.sim;
 
 import com.slightlyloony.sim.components.Component;
-import com.slightlyloony.sim.components.ComponentFactory;
-import com.slightlyloony.sim.specs.CircuitSpec;
-import com.slightlyloony.sim.specs.ComponentSpec;
-import com.slightlyloony.sim.specs.NetSpec;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -21,23 +17,6 @@ public class Circuit {
     private Map< String, Net > nets = new HashMap<>();
 
 
-    public Circuit( final CircuitSpec _spec ) {
-
-        // first get our circuit metadata...
-        name = _spec.getName();
-
-        // next get all our components...
-        for( ComponentSpec componentSpec : _spec.getComponents() ) {
-            Component component = ComponentFactory.create( componentSpec );
-            components.put( component.getName(), component );
-        }
-
-        // next get all our nets...
-        for( NetSpec netSpec : _spec.getNets() ) {
-            Net net = new Net( netSpec, this );
-            nets.put( netSpec.getName(), net );
-        }
-    }
 
 
     public void add( final Component _component ) {
@@ -48,12 +27,12 @@ public class Circuit {
     }
 
 
-    public void add( final Net _net ) {
-        String name = _net.getName().toUpperCase();
-        if( nets.containsKey( name ) )
-            throw new IllegalStateException( "Duplicate net name: " + name );
-        nets.put( name, _net );
-    }
+//    public void add( final Net _net ) {
+//        String name = _net.getName().toUpperCase();
+//        if( nets.containsKey( name ) )
+//            throw new IllegalStateException( "Duplicate net name: " + name );
+//        nets.put( name, _net );
+//    }
 
 
     public boolean hasNet( final String _name ) { return nets.containsKey( _name ); }

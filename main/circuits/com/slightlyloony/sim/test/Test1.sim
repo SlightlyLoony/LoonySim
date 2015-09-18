@@ -1,0 +1,23 @@
+package com.slightlyloony.sim.test
+
+import com.slightlyloony.sim.test.utility.AlkalineBattery
+
+// this is a comment for the test circuit...
+/*
+ * This is a comment, too.
+ */
+Test1: Circuit
+
+    R1:      Resistor
+                1k ohms, 10%
+                10 watts, wire wound
+    R2:      Resistor 4.7kΩ, 10%, 1/2watt, thick film
+    Battery: AlkalineBattery
+
+    /*
+     * Here's where we specify our networks
+     */
+    ground: Net R2.2, Battery.minus
+    Vcc:    Net R1.1, Battery.plus
+    n1:     Net R1.2, R2.1
+

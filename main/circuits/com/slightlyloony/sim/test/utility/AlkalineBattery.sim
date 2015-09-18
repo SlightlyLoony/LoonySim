@@ -1,0 +1,12 @@
+package com.slightlyloony.sim.test.utility
+
+AlkalineBattery: Circuit
+
+    VS1:  FixedDCVoltageSource 1.3v, 5%
+    Rint: Resistor 0.2Ω, +400% -50%
+
+    plus:  Net Rint.1
+    minus: Net VS1.-
+    n1:    Net Rint.2, VS1.+
+
+    export plus, minus

@@ -1,0 +1,10 @@
+// test runner
+package com.slightlyloony.sim.test  // this is the package we're in!
+
+import /* this shouldn't affect tokenizing */  com.slightlyloony.sim.test.Test1
+
+/*
+ * The element that follows does something.
+ */
+TestRun1: Run
+    use Test1

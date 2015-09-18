@@ -1,12 +1,16 @@
 package com.slightlyloony.sim.components;
 
 import com.slightlyloony.sim.Net;
-import com.slightlyloony.sim.specs.ResistorSpec;
 
 /**
  * @author Tom Dilatush  tom@dilatush.com
  */
 public class Resistor extends ATwoTerminalComponent implements Component {
+
+    protected Resistor( final String _name, final String[][] _terminalsSpec ) {
+        super( _name, _terminalsSpec );
+    }
+
 
     public enum Kind { carbon_film, thick_film, thin_film, metal_film, metal_oxide_film, wire_wound, foil, other }
 
@@ -16,14 +20,6 @@ public class Resistor extends ATwoTerminalComponent implements Component {
     private Kind kind;
 
 
-    public Resistor( final ResistorSpec _spec ) {
-        super( _spec.getName(), _spec.getTerminals() );
-        ohms = _spec.getValue();
-        powerDissipation = _spec.getPower_dissipation();
-        kind = _spec.getKind();
-        if( _spec.getToleranceSpec() != null )
-            tolerance = new Tolerance( _spec.getToleranceSpec() );
-    }
 
 
     @Override

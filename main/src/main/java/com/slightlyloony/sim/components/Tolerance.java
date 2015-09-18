@@ -1,6 +1,5 @@
 package com.slightlyloony.sim.components;
 
-import com.slightlyloony.sim.specs.ToleranceSpec;
 
 /**
  * Encapsulates the notion of a tolerance on an electronic component.  For example, capacitors are generally specified as a nominal number of farads,
@@ -14,52 +13,38 @@ import com.slightlyloony.sim.specs.ToleranceSpec;
  */
 public class Tolerance {
 
-    // TODO try regex solution for fromSpiceString
-
     // the tolerance variances, either as absolute value or (more commonly) as percentage (1.0 = 1%)...
-    private final double plus;
-    private final double minus;
-
-    // the tolerance units, either ABSOLUTE or PERCENT...
-    private final ToleranceUnits units;
-
-
-    protected Tolerance( final ToleranceSpec _spec ) {
-        if( _spec.getBoth() != 0 ) {
-            plus = _spec.getBoth();
-            minus = plus;
-        }
-        else {
-            plus = _spec.getUpper();
-            minus = _spec.getLower();
-        }
-        units = _spec.isPercent() ? ToleranceUnits.PERCENT : ToleranceUnits.ABSOLUTE;
-    }
+//    private final double plus;
+//    private final double minus;
+//
+//    // the tolerance units, either ABSOLUTE or PERCENT...
+//    private final ToleranceUnits units;
 
 
-    public double getHigh( final double _value ) {
-        return _value - ((units == ToleranceUnits.ABSOLUTE) ? _value + plus : _value * (1.0 + plus / 100.0));
-    }
 
-
-    public double getLow( final double _value ) {
-        return _value - ((units == ToleranceUnits.ABSOLUTE) ? _value - minus : _value * (1.0 - minus / 100.0));
-    }
-
-
-    public double getPlus() {
-        return plus;
-    }
-
-
-    public double getMinus() {
-        return minus;
-    }
-
-
-    public ToleranceUnits getUnits() {
-        return units;
-    }
+//    public double getHigh( final double _value ) {
+//        return _value - ((units == ToleranceUnits.ABSOLUTE) ? _value + plus : _value * (1.0 + plus / 100.0));
+//    }
+//
+//
+//    public double getLow( final double _value ) {
+//        return _value - ((units == ToleranceUnits.ABSOLUTE) ? _value - minus : _value * (1.0 - minus / 100.0));
+//    }
+//
+//
+//    public double getPlus() {
+//        return plus;
+//    }
+//
+//
+//    public double getMinus() {
+//        return minus;
+//    }
+//
+//
+//    public ToleranceUnits getUnits() {
+//        return units;
+//    }
 
 
     public enum ToleranceUnits { PERCENT, ABSOLUTE }

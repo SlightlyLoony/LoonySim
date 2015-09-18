@@ -5,4 +5,5 @@ package com.slightlyloony.sim.constants;
  */
 public class Strings {
 
+    public static final String SIM_FILE_EXT = ".sim";
 }
