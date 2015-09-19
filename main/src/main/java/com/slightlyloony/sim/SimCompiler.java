@@ -35,8 +35,7 @@ public class SimCompiler {
 
     private void compile( File _source ) throws IOException, ParseException {
         String source = Files.readFileAsUTF8String( _source );
-        Tokenizer tokenizer = new Tokenizer();
-        tokenizer.tokenize( source );
+        CircuitTokens tokenizer = new CircuitTokens( source );
         List<Token> tokens = tokenizer.getTokens();
         hashCode();
     }

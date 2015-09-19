@@ -6,7 +6,7 @@ import com.slightlyloony.sim.test.utility.AlkalineBattery
 /*
  * This is a comment, too.
  */
-Test1: Circuit
+Test1: Circuit :
 
     R1:      Resistor
                 1k, /* crummy thing! */ 10%
@@ -20,4 +20,3 @@ Test1: Circuit
     ground: Net R2.2, Battery.minus
     Vcc:    Net R1.1, Battery.plus
     n1:     Net R1.2, R2.1
-

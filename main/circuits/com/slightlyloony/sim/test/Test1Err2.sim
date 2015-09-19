@@ -19,5 +19,6 @@ Test1: Circuit
      */
     ground: Net R2.2, Battery.minus
     Vcc:    Net R1.1, Battery.plus
-    n1:     Net R1.2, R2.1
+    n1:     Net R1.2, R2.1 /*
+    n2:     Net R2.2  R2.1
 
