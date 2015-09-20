@@ -3,12 +3,13 @@ package com.slightlyloony.sim;
 import com.slightlyloony.sim.components.Component;
 
 import java.util.HashMap;
+import java.util.ListIterator;
 import java.util.Map;
 
 /**
  * @author Tom Dilatush  tom@dilatush.com
  */
-public class Circuit {
+public class Circuit extends AElement {
 
     private String name;
 
@@ -17,6 +18,9 @@ public class Circuit {
     private Map< String, Net > nets = new HashMap<>();
 
 
+    protected Circuit( final ListIterator<Token> _tokenListIterator, final CircuitFactory _circuitFactory ) {
+        super( _tokenListIterator, _circuitFactory );
+    }
 
 
     public void add( final Component _component ) {

@@ -226,7 +226,7 @@ public class CircuitTokens {
 
 
     /**
-     * Returns true if we're expecting a type token, meaning that the preceding token was a label, the keyword "import", or the keyword "use".
+     * Returns true if we're expecting a type token, meaning that the preceding token was a label, or the keyword "use".
      *
      * @return true if we're expecting a type token.
      */
@@ -236,7 +236,7 @@ public class CircuitTokens {
             return false;
 
         Token prev = tokens.get( tokens.size() - 1 );
-        return prev.is( TokenType.LABEL ) || prev.is( TokenType.KEY_IMPORT ) || prev.is( TokenType.KEY_USE );
+        return prev.is( TokenType.LABEL ) || prev.is( TokenType.KEY_USE );
     }
 
 

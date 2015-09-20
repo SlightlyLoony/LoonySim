@@ -1,7 +1,6 @@
 package com.slightlyloony.sim.test;
 
-import com.slightlyloony.sim.ParseException;
-import com.slightlyloony.sim.SimCompiler;
+import com.slightlyloony.sim.CircuitFactory;
 import org.junit.Test;
 
 import java.io.File;
@@ -16,14 +15,12 @@ public class SpecTest {
     @Test
     public void SimpleTest() {
         try {
-            SimCompiler compiler = new SimCompiler();
-            compiler.addDir( new File( "circuits" ) );
-            compiler.compile( "com.slightlyloony.sim.test.TestRun1" );
+            CircuitFactory circuitFactory = new CircuitFactory();
+            circuitFactory.addDir( new File( "circuits" ) );
+            circuitFactory.load( "com.slightlyloony.sim.test.TestRun1" );
 
             hashCode();
         } catch( IOException e ) {
-            e.printStackTrace();
-        } catch( ParseException e ) {
             e.printStackTrace();
         }
     }
