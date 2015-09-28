@@ -12,12 +12,12 @@ Test1: Circuit
                 1k, /* crummy thing! */ 10%
                 10 watts, wire wound
     R2:      Resistor 4.7k, 10%, 1/2watt, thick film
-    Battery: AlkalineBattery
+    //Battery: AlkalineBattery
 
     /*
      * Here's where we specify our networks
      */
-    ground: Net R2.2, Battery.minus
-    Vcc:    Net R1.1, Battery.plus
-    n1:     Net R1.2, R2.1
+//    ground: Net R2.2, Battery.minus
+//    Vcc:    Net R1.1, Battery.plus
+//    n1:     Net R1.2, R2.1
 

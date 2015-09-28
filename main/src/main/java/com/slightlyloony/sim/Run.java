@@ -1,5 +1,6 @@
 package com.slightlyloony.sim;
 
+import java.io.IOException;
 import java.util.ListIterator;
 
 /**
@@ -7,29 +8,33 @@ import java.util.ListIterator;
  */
 public class Run extends AElement {
 
-    protected Run( final ListIterator<Token> _tokenListIterator, final CircuitFactory _circuitFactory ) {
-        super( _tokenListIterator, _circuitFactory );
 
-        // the next two tokens MUST be a label followed by a "Run" type...
-        if( isNextToken( _tokenListIterator, TokenType.LABEL ) ) {
+    protected Circuit useElement = null;
 
-            Token labelToken = _tokenListIterator.next();
 
-            if( isNextToken( _tokenListIterator, TokenType.TYPE ) ) {
+    protected Run( final ListIterator<Token> _tokenListIterator, final String _path, final CircuitFactory _circuitFactory ) throws IOException {
+        super( _tokenListIterator, _path, _circuitFactory );
 
-                Token typeToken = _tokenListIterator.next();
-                type = typeToken.getValue();
-                if( !"Run".equals( type ) ) {
-                    _circuitFactory.postError( "Expected 'Run' type, not '" + type + "'", typeToken );
-                }
+        // analyze the remaining tokens, as they all should belong to this instance or its subordinates...
+        while( _tokenListIterator.hasNext() ) {
 
+            Token nextToken = peekNextToken();
+
+            switch( nextToken.getType() ) {
+
+                case KEY_USE:
+                    if( useElement == null ) {
+                        useElement = loadCircuit();
+                    }
+                    else {
+                        circuitFactory.postError( "Multiple 'use' definitions", nextToken );
+                        tokenIterator.next();
+                    }
+                    break;
+
+                default:
+                    break;
             }
-            else {
-                _circuitFactory.postError( "Expected type token", peekNextToken( _tokenListIterator ) );
-            }
-        }
-        else {
-            _circuitFactory.postError( "Expected label token", peekNextToken( _tokenListIterator ) );
         }
 
         hashCode();

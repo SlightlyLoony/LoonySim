@@ -26,6 +26,8 @@
         <module name="main" />
       </profile>
     </annotationProcessing>
-    <bytecodeTargetLevel target="1.8" />
+    <bytecodeTargetLevel target="1.8">
+      <module name="main" target="1.8" />
+    </bytecodeTargetLevel>
   </component>
 </project>

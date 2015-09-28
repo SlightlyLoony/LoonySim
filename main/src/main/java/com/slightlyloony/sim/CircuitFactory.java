@@ -26,14 +26,14 @@ public class CircuitFactory {
     private int warnings;
 
 
-    public AElement load( final String _runElement ) throws IOException {
+    public AElement load( final String _elementPath ) throws IOException {
 
         findSourceFiles();
-        if( !sourceFiles.containsKey( _runElement ) )
-            throw new IllegalArgumentException( "Run element does not exist: " + _runElement );
+        if( !sourceFiles.containsKey( _elementPath ) )
+            throw new IllegalArgumentException( "Run element does not exist: " + _elementPath );
 
         // parse and tokenize our source file...
-        String source = Files.readFileAsUTF8String( sourceFiles.get( _runElement ) );
+        String source = Files.readFileAsUTF8String( sourceFiles.get( _elementPath ) );
         CircuitTokens tokenizer = new CircuitTokens( source );
         messages.append( tokenizer.getMessages() );
         errors += tokenizer.getErrorsCount();
@@ -59,7 +59,7 @@ public class CircuitFactory {
 
         // if we didn't get any type at all, bail out with an error...
         if( type == null ) {
-            postError( "No circuit element type specified in " + _runElement );
+            postError( "No circuit element type specified in " + _elementPath );
             return null;
         }
 
@@ -67,14 +67,14 @@ public class CircuitFactory {
         switch( type ) {
 
             case "Circuit":
-                return validate( new Circuit( tokens.listIterator(), this ), _runElement );
+                return new Circuit( tokens.listIterator(), _elementPath, this );
 
             case "Run":
-                return validate( new Run( tokens.listIterator(), this ), _runElement );
+                return new Run( tokens.listIterator(), _elementPath, this );
 
             // if we get here, then we have something invalid as an element type, so bail out with an error...
             default:
-                postError( "Invalid circuit element type '" + type + "' in " + _runElement );
+                postError( "Invalid circuit element type '" + type + "' in " + _elementPath );
                 return null;
         }
     }
@@ -110,47 +110,32 @@ public class CircuitFactory {
     }
 
 
-    private AElement validate( final AElement _element, final String _path ) {
-
-        int lastPeriod = _path.lastIndexOf( '\n' );
-        String dPath = (lastPeriod >= 0) ? _path.substring( 0, lastPeriod ) : "";
-        String dType = (lastPeriod >= 0) ? _path.substring( lastPeriod + 1 ) : _path;
-
-        if( _element.getPath() != null ) {
-            if(!_element.getPath().equals( dPath ) ) {
-                postError( "Element " + _path + " does not specify the correct package; should be " + dPath );
-            }
-        }
-
-        if( !_element.getType().equals( dType ) ) {
-            postError( "Element " + _path + " does not specify the correct type; should be " + dType );
-        }
-
-        return _element;
-    }
-
-
-    protected void postError( final String _message ) {
+    public void postError( final String _message ) {
         messages.append( _message ).append( '\n' );
         errors++;
     }
 
 
-    protected void postWarning( final String _message ) {
+    public void postWarning( final String _message ) {
         messages.append( _message ).append( '\n' );
         warnings++;
     }
 
 
-    protected void postError( final String _message, final Token _token ) {
+    public void postError( final String _message, final Token _token ) {
         messages.append( _message ).append( ref( _token ) ).append( '\n' );
         errors++;
     }
 
 
-    protected void postWarning( final String _message, final Token _token ) {
+    public void postWarning( final String _message, final Token _token ) {
         messages.append( _message ).append( ref( _token ) ).append( '\n' );
         warnings++;
+    }
+
+
+    protected boolean hasType( final String _type ) {
+        return sourceFiles.containsKey( _type );
     }
 
 
