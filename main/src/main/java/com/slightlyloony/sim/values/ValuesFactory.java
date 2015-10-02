@@ -54,12 +54,12 @@ public class ValuesFactory {
             if( !gotValue ) {
                 _circuit.getCircuitFactory().postWarning( "Invalid value specfication '" + spec + "'", token );
             }
+        }
 
-            // ensure each desired value is present in the result...
-            for( Value value : _defaults ) {
-                if( !result.containsKey( value.getClass() )) {
-                    result.put( value.getClass(), value );
-                }
+        // ensure each desired value is present in the result...
+        for( Value value : _defaults ) {
+            if( !result.containsKey( value.getClass() )) {
+                result.put( value.getClass(), value );
             }
         }
 

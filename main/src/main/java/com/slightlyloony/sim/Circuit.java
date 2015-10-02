@@ -2,6 +2,7 @@ package com.slightlyloony.sim;
 
 import com.slightlyloony.sim.components.Component;
 import com.slightlyloony.sim.components.ComponentFactory;
+import com.slightlyloony.sim.nets.Net;
 
 import java.util.HashMap;
 import java.util.ListIterator;
@@ -13,7 +14,7 @@ import java.util.Map;
 public class Circuit extends AElement {
 
     private final Map< String, Component> components = new HashMap<>();
-    private final Map< String, Net > nets = new HashMap<>();
+    private final Map< String, Net> nets = new HashMap<>();
 
 
     protected Circuit( final ListIterator<Token> _tokenListIterator, final String _path, final CircuitFactory _circuitFactory ) {

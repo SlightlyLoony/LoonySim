@@ -24,8 +24,9 @@ public abstract class AScalar implements Value {
 
     protected Value getInstance( final String _spec, final Units _unit, final boolean _required ) {
 
-        if( _spec == null )
-            throw new IllegalArgumentException( "Null spec" );
+        // no arguments, no instance...
+        if( (_spec == null) || (_unit == null) )
+            return null;
 
         // remove whitespace and divide into number and suffix...
         String spec = _spec.replaceAll( "\\s", "" );

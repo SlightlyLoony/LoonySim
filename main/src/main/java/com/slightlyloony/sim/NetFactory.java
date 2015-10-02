@@ -1,5 +1,7 @@
 package com.slightlyloony.sim;
 
+import com.slightlyloony.sim.nets.Net;
+
 import java.util.ListIterator;
 
 /**

@@ -1,5 +1,7 @@
 package com.slightlyloony.sim;
 
+import com.slightlyloony.sim.nets.Net;
+
 /**
  * @author Tom Dilatush  tom@dilatush.com
  */

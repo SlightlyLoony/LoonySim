@@ -47,6 +47,7 @@ public class ComponentFactory {
                 return ctor.newInstance( _tokenIterator, _circuit );
             }
             catch( NoSuchMethodException | IllegalAccessException | InstantiationException | InvocationTargetException e ) {
+                e.printStackTrace();
                 return null;  // we don't care why it didn't work, just that it didn't...
             }
         }

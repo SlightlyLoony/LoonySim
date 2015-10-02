@@ -1,4 +1,4 @@
-package com.slightlyloony.sim;
+package com.slightlyloony.sim.nets;
 
 /**
  * @author Tom Dilatush  tom@dilatush.com

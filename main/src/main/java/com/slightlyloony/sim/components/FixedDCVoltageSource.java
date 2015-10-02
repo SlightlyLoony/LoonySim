@@ -10,7 +10,7 @@ import java.util.ListIterator;
 /**
  * @author Tom Dilatush  tom@dilatush.com
  */
-public class FixedDCVoltageSource extends ATwoTerminalComponent implements Component {
+public class FixedDCVoltageSource extends AComponent implements Component {
 
 
     private double volts;
@@ -18,7 +18,7 @@ public class FixedDCVoltageSource extends ATwoTerminalComponent implements Compo
 
 
     protected FixedDCVoltageSource( final ListIterator<Token> _tokenIterator, final Circuit _circuit ) {
-        super( _tokenIterator, _circuit );
+        super( _circuit );
     }
 
 

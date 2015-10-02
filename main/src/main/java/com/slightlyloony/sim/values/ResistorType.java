@@ -16,12 +16,23 @@ public class ResistorType implements Value {
 
     @Override
     public Value getInstance( final String _spec, final Units _unit ) {
-        return null;
+
+        if( _spec == null )
+            return null;
+
+        ResistorTechnology rt = ResistorTechnology.get( _spec.trim().toUpperCase() );
+
+        return (rt == null) ? null : new ResistorType( rt );
     }
 
 
     @Override
     public Units getUnit() {
         return null;
+    }
+
+
+    public ResistorTechnology getType() {
+        return type;
     }
 }
