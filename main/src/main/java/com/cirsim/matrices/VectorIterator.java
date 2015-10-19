@@ -1,6 +1,8 @@
 package com.cirsim.matrices;
 
 /**
+ * Implemented by iterators over vectors.
+ *
  * @author Tom Dilatush  tom@dilatush.com
  */
 public interface VectorIterator {
@@ -10,4 +12,10 @@ public interface VectorIterator {
     double next();
 
     int index();
+
+    boolean isOrdered();
+
+    boolean isSparse();
+
+    int elements();
 }

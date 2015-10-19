@@ -8,6 +8,7 @@ import org.junit.Test;
 /**
  * @author Tom Dilatush  tom@dilatush.com
  */
+//TODO: add assertions to all tests...
 public class JaVectorTest extends TestCase {
 
     @Test
@@ -16,7 +17,6 @@ public class JaVectorTest extends TestCase {
         double[] a = new double[] {0,0,0,0,0,1,2,3,4,5,0,0,0,0,0,6,7,8,9,0,0,0,0,0,0};
         JaVector v2 = new JaVector( a, 100 );
         JaVector v3 = new JaVector( v2 );
-        //TODO: add assertions to test these...
         hashCode();
     }
 
@@ -26,68 +26,7 @@ public class JaVectorTest extends TestCase {
         JaVector a = new JaVector( new double[] { 1.1, 0, 0, 1.2, 1.3 }, 10 );
         JaVector b = new JaVector( new double[] { 0, 0, 2.1, 2.2, 2.3}, 10 );
         Vector c = a.add( b );
-        //TODO: add assertions to test these...
         hashCode();
-    }
-
-
-    @Test
-    public void testSubtract() throws Exception {
-
-    }
-
-
-    @Test
-    public void testGet() throws Exception {
-
-    }
-
-
-    @Test
-    public void testSet() throws Exception {
-
-    }
-
-
-    @Test
-    public void testSet1() throws Exception {
-
-    }
-
-
-    @Test
-    public void testGetMaxEqualsUlpDiff() throws Exception {
-
-    }
-
-
-    @Test
-    public void testLength() throws Exception {
-
-    }
-
-
-    @Test
-    public void testIsValidIndex() throws Exception {
-
-    }
-
-
-    @Test
-    public void testIsSameLength() throws Exception {
-
-    }
-
-
-    @Test
-    public void testIsSameLength1() throws Exception {
-
-    }
-
-
-    @Test
-    public void testDeepCopy() throws Exception {
-
     }
 
 
@@ -95,49 +34,104 @@ public class JaVectorTest extends TestCase {
     public void testMultiply() throws Exception {
         JaVector a = new JaVector( new double[] { 1.1, 0, 0, 1.2, 1.3 }, 10 );
         Vector b = a.multiply( 0.5 );
-        //TODO: add assertions to test these...
         hashCode();
     }
 
 
-    @Test
+    public void testSubtract() throws Exception {
+
+    }
+
+
+    public void testAddMultiple() throws Exception {
+
+    }
+
+
+    public void testGet() throws Exception {
+
+    }
+
+
+    public void testSet() throws Exception {
+
+    }
+
+
+    public void testSet1() throws Exception {
+
+    }
+
+
+    public void testGetEpsilon() throws Exception {
+
+    }
+
+
+    public void testLength() throws Exception {
+
+    }
+
+
+    public void testNonZeroElementCount() throws Exception {
+
+    }
+
+
+    public void testIsValidIndex() throws Exception {
+
+    }
+
+
+    public void testIsSameLength() throws Exception {
+
+    }
+
+
+    public void testIsSameLength1() throws Exception {
+
+    }
+
+
+    public void testDeepCopy() throws Exception {
+
+    }
+
+
     public void testSubVector() throws Exception {
 
     }
 
 
-    @Test
     public void testToArray() throws Exception {
 
     }
 
 
-    @Test
     public void testToJaVector() throws Exception {
 
     }
 
 
-    @Test
     public void testIterator() throws Exception {
 
     }
 
 
-    @Test
-    public void testSparseIterator() throws Exception {
-
-    }
-
-
-    @Test
     public void testEquals() throws Exception {
-
+        JaVector jav1 = new JaVector( new double[] { 0.0, 1.1, 2.2, 3.3, 4.4 } );
+        JaVector jav2 = new JaVector( new double[] { 0.0, 1.1, 2.2, 3.3, 4.4 } );
+        assertTrue( jav1.equals( jav2 ) );
+        hashCode();
     }
 
 
-    @Test
     public void testHashCode() throws Exception {
-
+        JaVector jav1 = new JaVector( new double[] { 0.0, 1.1, 2.2, 3.3, 4.4 } );
+        JaVector jav2 = new JaVector( new double[] { 0.0, 1.23, 2.34, 3.45, 4.56 } );
+        JaVector jav3 = new JaVector( new double[] { 0.0, 2.34, 1.23, 3.45, 4.56 } );
+        int hc2 = jav2.hashCode();
+        int hc3 = jav3.hashCode();
+        hashCode();
     }
 }
