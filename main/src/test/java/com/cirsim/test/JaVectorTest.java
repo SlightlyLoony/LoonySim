@@ -1,6 +1,6 @@
 package com.cirsim.test;
 
-import com.cirsim.matrices.JaVector;
+import com.cirsim.matrices.JAVector;
 import com.cirsim.matrices.Vector;
 import junit.framework.TestCase;
 import org.junit.Test;
@@ -13,18 +13,18 @@ public class JaVectorTest extends TestCase {
 
     @Test
     public void testConstructors() throws Exception {
-        JaVector v1 = new JaVector( 25, 100 );
+        JAVector v1 = new JAVector( 25, 100 );
         double[] a = new double[] {0,0,0,0,0,1,2,3,4,5,0,0,0,0,0,6,7,8,9,0,0,0,0,0,0};
-        JaVector v2 = new JaVector( a, 100 );
-        JaVector v3 = new JaVector( v2 );
+        JAVector v2 = new JAVector( a, 100 );
+        JAVector v3 = new JAVector( v2 );
         hashCode();
     }
 
 
     @Test
     public void testAdd() throws Exception {
-        JaVector a = new JaVector( new double[] { 1.1, 0, 0, 1.2, 1.3 }, 10 );
-        JaVector b = new JaVector( new double[] { 0, 0, 2.1, 2.2, 2.3}, 10 );
+        JAVector a = new JAVector( new double[] { 1.1, 0, 0, 1.2, 1.3 }, 10 );
+        JAVector b = new JAVector( new double[] { 0, 0, 2.1, 2.2, 2.3}, 10 );
         Vector c = a.add( b );
         hashCode();
     }
@@ -32,7 +32,7 @@ public class JaVectorTest extends TestCase {
 
     @Test
     public void testMultiply() throws Exception {
-        JaVector a = new JaVector( new double[] { 1.1, 0, 0, 1.2, 1.3 }, 10 );
+        JAVector a = new JAVector( new double[] { 1.1, 0, 0, 1.2, 1.3 }, 10 );
         Vector b = a.multiply( 0.5 );
         hashCode();
     }
@@ -119,17 +119,17 @@ public class JaVectorTest extends TestCase {
 
 
     public void testEquals() throws Exception {
-        JaVector jav1 = new JaVector( new double[] { 0.0, 1.1, 2.2, 3.3, 4.4 } );
-        JaVector jav2 = new JaVector( new double[] { 0.0, 1.1, 2.2, 3.3, 4.4 } );
+        JAVector jav1 = new JAVector( new double[] { 0.0, 1.1, 2.2, 3.3, 4.4 } );
+        JAVector jav2 = new JAVector( new double[] { 0.0, 1.1, 2.2, 3.3, 4.4 } );
         assertTrue( jav1.equals( jav2 ) );
         hashCode();
     }
 
 
     public void testHashCode() throws Exception {
-        JaVector jav1 = new JaVector( new double[] { 0.0, 1.1, 2.2, 3.3, 4.4 } );
-        JaVector jav2 = new JaVector( new double[] { 0.0, 1.23, 2.34, 3.45, 4.56 } );
-        JaVector jav3 = new JaVector( new double[] { 0.0, 2.34, 1.23, 3.45, 4.56 } );
+        JAVector jav1 = new JAVector( new double[] { 0.0, 1.1, 2.2, 3.3, 4.4 } );
+        JAVector jav2 = new JAVector( new double[] { 0.0, 1.23, 2.34, 3.45, 4.56 } );
+        JAVector jav3 = new JAVector( new double[] { 0.0, 2.34, 1.23, 3.45, 4.56 } );
         int hc2 = jav2.hashCode();
         int hc3 = jav3.hashCode();
         hashCode();

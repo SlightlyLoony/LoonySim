@@ -1,14 +1,23 @@
 package com.cirsim.matrices;
 
 /**
+ * Instances of this class wrap concrete <code>Vector</code> instances to disable any mutator methods, thus making the wrapped instance effectively
+ * immutable.  Any attempt to use a mutator method results in a <code>UnsupportedOperationException</code> being thrown.
+ *
  * @author Tom Dilatush  tom@dilatush.com
  */
 public class ImmutableVector implements Vector {
 
 
+    // the wrapped mutable Vector instance...
     private Vector vector;
 
 
+    /**
+     * Creates a new instance of this class that wraps the given <code>Vector</code> to enforce immutability.
+     *
+     * @param _vector the Vector to wrap in immutability
+     */
     public ImmutableVector( final Vector _vector ) {
 
         if( _vector == null )
@@ -19,45 +28,45 @@ public class ImmutableVector implements Vector {
 
 
     /**
-     * Adds the given vector to this vector, element by element, returning the sum in a new vector.  The vector implementation class of the result is
+     * Adds the given vector to this vector, entry by entry, returning the sum in a new vector.  The vector implementation class of the result is
      * the same as that of this instance.  Throws an <code>IllegalArgumentException</code> if the given vector is missing or is a different length
      * than this instance.
      *
      * @param _vector the vector to add to this vector.
-     * @return a new vector containing the element-by-element sum of this instance and the given vector.
+     * @return a new vector containing the entry-by-entry sum of this instance and the given vector.
      */
     @Override
     public Vector add( final Vector _vector ) {
-        return null;
+        return vector.add( _vector );
     }
 
 
     /**
-     * Subtracts the given vector from this vector, element by element, returning the difference in a new vector.  The vector implementation class of
+     * Subtracts the given vector from this vector, entry by entry, returning the difference in a new vector.  The vector implementation class of
      * the result is the same as that of this instance.  Throws an <code>IllegalArgumentException</code> if the given vector is missing or is a
      * different length than this instance.
      *
      * @param _vector the vector to subtract from this vector.
-     * @return a new vector containing the element-by-element difference of this instance and the given vector.
+     * @return a new vector containing the entry-by-entry difference of this instance and the given vector.
      */
     @Override
     public Vector subtract( final Vector _vector ) {
-        return null;
+        return vector.subtract( _vector );
     }
 
 
     /**
-     * Adds the given multiple of the given vector to this vector, element by element, returning the sum in a new vector.  The vector implementation
+     * Adds the given multiple of the given vector to this vector, entry by entry, returning the sum in a new vector.  The vector implementation
      * class of the result is the same as that of this instance.  Throws an <code>IllegalArgumentException</code> if the given vector is missing or is
      * a different length than this instance.
      *
      * @param _vector     the vector to add a multiple of to this vector.
-     * @param _multiplier
-     * @return a new vector containing the element-by-element sum of this instance and the given multiple of the given vector.
+     * @param _multiplier the multiplier
+     * @return a new vector containing the entry-by-entry sum of this instance and the given multiple of the given vector.
      */
     @Override
     public Vector addMultiple( final Vector _vector, final double _multiplier ) {
-        return null;
+        return vector.addMultiple( _vector, _multiplier );
     }
 
 
@@ -66,11 +75,11 @@ public class ImmutableVector implements Vector {
      * than zero, or equal to or greater than the vector's length.
      *
      * @param _index the index of the value to get
-     * @return the value of the element at the given index
+     * @return the value of the entry at the given index
      */
     @Override
     public double get( final int _index ) {
-        return 0;
+        return vector.get( _index );
     }
 
 
@@ -83,18 +92,18 @@ public class ImmutableVector implements Vector {
      */
     @Override
     public void set( final int _index, final double _value ) {
-
+        throw new UnsupportedOperationException( "ImmutableVector does not support set()" );
     }
 
 
     /**
-     * Sets the value of all elements of this vector to the given value.
+     * Sets the value of all entries of this vector to the given value.
      *
-     * @param _value the value to set all elements to
+     * @param _value the value to set all entries to
      */
     @Override
     public void set( final double _value ) {
-
+        throw new UnsupportedOperationException( "ImmutableVector does not support set()" );
     }
 
 
@@ -108,31 +117,31 @@ public class ImmutableVector implements Vector {
      */
     @Override
     public int getEpsilon() {
-        return 0;
+        return vector.getEpsilon();
     }
 
 
     /**
-     * Returns the length of this vector, which is the same as the number of elements in the vector (including both empty or zero elements and set or
-     * nonzero elements).
+     * Returns the length of this vector, which is the same as the number of entries in the vector (including both empty or zero entries and set or
+     * nonzero entries).
      *
      * @return the length of this vector
      */
     @Override
     public int length() {
-        return 0;
+        return vector.length();
     }
 
 
     /**
-     * Returns the number of nonzero (or not empty) elements in this vector.  In some implementations this operation may require traversing all the
-     * elements in the vector to count the ones that are empty.
+     * Returns the number of nonzero (or not empty) entries in this vector.  In some implementations this operation may require traversing all the
+     * entries in the vector to count the ones that are empty.
      *
-     * @return the number of nonzero elements in this vector
+     * @return the number of nonzero entries in this vector
      */
     @Override
-    public int nonZeroElementCount() {
-        return 0;
+    public int nonZeroEntryCount() {
+        return vector.nonZeroEntryCount();
     }
 
 
@@ -145,7 +154,7 @@ public class ImmutableVector implements Vector {
      */
     @Override
     public boolean isValidIndex( final int _index ) {
-        return false;
+        return vector.isValidIndex( _index );
     }
 
 
@@ -157,7 +166,7 @@ public class ImmutableVector implements Vector {
      */
     @Override
     public boolean isSameLength( final int _length ) {
-        return false;
+        return vector.isSameLength( _length );
     }
 
 
@@ -169,7 +178,7 @@ public class ImmutableVector implements Vector {
      */
     @Override
     public boolean isSameLength( final Vector _vector ) {
-        return false;
+        return vector.isSameLength( _vector );
     }
 
 
@@ -181,12 +190,12 @@ public class ImmutableVector implements Vector {
      */
     @Override
     public Vector deepCopy() {
-        return null;
+        return vector.deepCopy();
     }
 
 
     /**
-     * Returns a new vector whose element values are this vector's element values multiplied by the given multiplier, element-by-element.  The vector
+     * Returns a new vector whose entry values are this vector's entry values multiplied by the given multiplier, entry-by-entry.  The vector
      * implementation class of the result is the same as that of this instance.  In other words, <code>X[n] = T[n] * m</code>, where <code>X</code> is
      * the returned vector, <code>T</code> is this vector, <code>m</code> is the given multiplier, and <code>n</code> is the set of all index values
      * <code>0 .. T.length - 1</code>.
@@ -196,7 +205,7 @@ public class ImmutableVector implements Vector {
      */
     @Override
     public Vector multiply( final double _multiplier ) {
-        return null;
+        return vector.multiply( _multiplier );
     }
 
 
@@ -212,49 +221,53 @@ public class ImmutableVector implements Vector {
      */
     @Override
     public Vector subVector( final int _start, final int _end ) {
-        return null;
+        return vector.subVector( _start, _end );
     }
 
 
     /**
-     * Returns an ordinary array containing the values of all the elements of this instance (both zero or empty values and nonzero or set values). The
+     * Returns an ordinary array containing the values of all the entries of this instance (both zero or empty values and nonzero or set values). The
      * size of the array is equal to the length of this vector.
      *
      * @return the array containing all the values of this vector
      */
     @Override
     public double[] toArray() {
-        return new double[0];
+        return vector.toArray();
     }
 
 
     /**
-     * Returns a <code>JaVector</code> instance that is exactly equivalent to this vector.  If this vector <i>is</i> an instance of
-     * <code>JaVector</code>, then this vector is simply returned.  Otherwise a new instance of <code>JaVector</code> is created that is a copy of
+     * Returns a <code>JAVector</code> instance that is exactly equivalent to this vector.  If this vector <i>is</i> an instance of
+     * <code>JAVector</code>, then this vector is simply returned.  Otherwise a new instance of <code>JAVector</code> is created that is a copy of
      * this vector.  The resulting vector will compare with this vector as equal using the <code>equals()</code> method on either instance, and the
      * result of <code>hashCode()</code> for each will be the same.
      *
-     * @return a JaVector equivalent to this vector
+     * @return a JAVector equivalent to this vector
      */
     @Override
-    public JaVector toJaVector() {
-        return null;
+    public JAVector toJAVector() {
+        return vector.toJAVector();
     }
 
 
     /**
-     * Returns a vector iterator over this vector's elements in the given mode.  There are two aspects to the mode, each of which has two
-     * possibilities - so there are four possible combinations of modes. <ul> <li><b>Ordered or unordered:</b> an ordered iterator returns values in
-     * index order (though if the iterator is also sparse, some indices may be skipped).  An unordered iterator returns values in an unspecified
-     * order, not necessarily predictable, and possibly the same as when ordered.</li> <li><b>Dense or sparse:</b> A dense iterator iterates over
-     * <i>all</i> elements in the vector, whether set (nonzero) or empty (zero).  a sparse iterator iterates over <i>only</i> the set (nonzero)
-     * elements.</li> </ul>
+     * Returns a vector iterator over this vector's entries in the given order and filter modes.
+     * <p>
+     * The order mode determines the order that the returned iterator will iterate over the vector's entries.  This may be either <i>index</i> order
+     * (which means in numerical index order, <i>0 .. n</i>), or <i>unspecified</i> order (which means any order at all, including <i>index</i>.
+     * Some <code>Vector</code> implementations iterate faster in <i>unspecified</i> order mode.
+     * <p>
+     * The filter mode determines <i>which</i> of this vector's entries the returned iterator will iterate over.  This may be either
+     * <i>unfiltered</i> (which means <i>all</i> entries) or <i>sparse</i> (which means only set, or nonzero, entries).  For sparsely populated
+     * vectors, the <i>sparse</i> filter mode can be significantly faster.
      *
-     * @param _iteratorMode the mode for this iterator: ordered or unordered, dense or sparse
-     * @return the iterator over this vector's elements in the given mode
+     * @param _orderMode the order mode for the returned iterator (either index order or unspecified order)
+     * @param _filterMode the filter mode for the returned iterator (either unfiltered, or set entries)
+     * @return the iterator over this vector's entries in the given order and filter mode
      */
     @Override
-    public VectorIterator iterator( final IteratorMode _iteratorMode ) {
-        return null;
+    public VectorIterator iterator( final VectorIteratorOrderMode _orderMode, final VectorIteratorFilterMode _filterMode ) {
+        return vector.iterator( _orderMode, _filterMode );
     }
 }

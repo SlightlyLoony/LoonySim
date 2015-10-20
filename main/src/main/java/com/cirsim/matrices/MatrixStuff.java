@@ -19,13 +19,13 @@ public class MatrixStuff {
 
     /**
      * Computes a hash value for a vector that will be the same for any two equivalent vectors, independent of the vector implementation class.  To
-     * accomplish this, the hash must depend on the nonzero element values, their indices, and the value of epsilon.  To make computing the hash as
-     * fast as possible for all implementation classes, the order in which elements are processed in computing the hash must not matter.  This allows
-     * traversing the nonzero elements with unordered sparse iterator, which is guaranteed to be the fastest iterator for <i>every</i> vector
+     * accomplish this, the hash must depend on the nonzero entry values, their indices, and the value of epsilon.  To make computing the hash as
+     * fast as possible for all implementation classes, the order in which entries are processed in computing the hash must not matter.  This allows
+     * traversing the nonzero entries with unordered sparse iterator, which is guaranteed to be the fastest iterator for <i>every</i> vector
      * implementation class.
      * <p>
      * Two properties are important in this hash's algorithm.  First, the contribution of each value and its index to the hash must depend on the
-     * properties of <i>both</i>.  This reduces the risk of hash collision in the case that two arrays with identical elements except that two of them
+     * properties of <i>both</i>.  This reduces the risk of hash collision in the case that two arrays with identical entries except that two of them
      * have swapped indices.  This property is made more challenging by the second property: the hash computation must be completely insensitive to
      * the order in which the values and their indices are processed.  The techniques most commonly seen in Java <code>hashCode()</code>
      * implementations fail in this regard, which is why we need something special here.
@@ -36,8 +36,9 @@ public class MatrixStuff {
     public static int vectorHash( final Vector _vector ) {
 
         int result = 0;
-        VectorIterator vi = _vector.iterator( IteratorMode.UNORDERED_AND_SPARSE );
+        VectorIterator vi = _vector.iterator( VectorIteratorOrderMode.UNSPECIFIED, VectorIteratorFilterMode.SPARSE );
         while( vi.hasNext() ) {
+            vi.next();
 
             /*
              * This bit twiddling results in a value that depends on the COMBINATION of the value and the index.  The double value is converted to
@@ -49,7 +50,7 @@ public class MatrixStuff {
              * -- Integer.rotateLeft() can actually rotate either right or left, depending on the sign of the second argument.
              * -- the ">>" operator does a bit-wise right shift of the left operand by the number of bit positions in the right operand.
              */
-            long eb = Double.doubleToRawLongBits( vi.next() );  // effectively casts the binary representation of a double to a long...
+            long eb = Double.doubleToRawLongBits( vi.value() );  // effectively casts the binary representation of a double to a long...
             result ^= Integer.rotateLeft( (int)  eb,        vi.index() + VECTOR_HASH_ROTATION_DELTA );
             result ^= Integer.rotateLeft( (int) (eb >> 32), vi.index() - VECTOR_HASH_ROTATION_DELTA );
             result ^= vi.index();
