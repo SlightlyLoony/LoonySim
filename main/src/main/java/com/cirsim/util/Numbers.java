@@ -114,4 +114,23 @@ public class Numbers {
     public static int hash( final int _hash, final int _n ) {
         return ((_hash << 5) - _hash) ^ _n;
     }
+
+
+    /**
+     * Returns the integer that is the first even power of two that is equal to or larger than the given number.
+     *
+     * @param _a the number to find a binary power larger than
+     * @return the integer that is the first even power of two that is equal to or larger than the given number
+     */
+    public static int closestBinaryPower( final int _a ) {
+
+        if( _a < 1 )
+            throw new IllegalArgumentException( "Negative argument not allowed: " + _a );
+
+        if( _a > 0x40000000 )
+            throw new IllegalArgumentException( "Argument is too large: " + _a );
+
+        int hb = Integer.highestOneBit( _a );
+        return  (hb == _a) ? hb : hb << 1;
+    }
 }

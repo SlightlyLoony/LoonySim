@@ -8,43 +8,38 @@ import java.util.Arrays;
 /**
  * Implements a vector of real numbers by using a standard Java array.  Instances of this class are most suitable for relatively small vectors.
  *<p>
- * Note that some methods of this class make use of "fuzzy" equality checking for element values.  See
+ * Note that some methods of this class make use of "fuzzy" equality checking for entry values.  See
  * {@link com.cirsim.util.Numbers#nearlyEqual(double, double, int) Numbers.nearlyEqual()} for details on this.
  *<p>
  * Instances of this class are mutable and are <i>not</i> threadsafe.
  *
  * @author Tom Dilatush  tom@dilatush.com
  */
-public class JaVector implements Vector {
+public class ArrayVector extends AVector implements Vector {
 
-    // holds the elements of this vector...
+
+    // holds the entries of this vector...
     private final double[] vector;
-
-    // the maximum number of ulps two doubles may differ by and still be considered equal...
-    private final int epsilon;
-
-    // caches the hash code; cache is invalidated by any mutation...
-    private boolean dirty = true;
-    private int hashCache;
 
 
     /**
-     * Creates a new instance of this class with the given length, all elements containing zero, and the default epsilon.
+     * Creates a new instance of this class with the given length, all entries containing zero, and the default epsilon.
      *
      * @param _length the length of the vector
      */
-    public JaVector( final int _length ) {
+    public ArrayVector( final int _length ) {
         this( _length, MatrixStuff.DEFAULT_EPSILON );
     }
 
 
     /**
-     * Creates a new instance of this class with the given length, all elements containing zero, and the given epsilon.
+     * Creates a new instance of this class with the given length, all entries containing zero, and the given epsilon.
      *
      * @param _length the length of the vector
      * @param _epsilon the epsilon to use in equality checking
      */
-    public JaVector( final int _length, final int _epsilon ) {
+    public ArrayVector( final int _length, final int _epsilon ) {
+        super( _epsilon );
 
         if( _length < 1 )
             throw new IllegalArgumentException( "Invalid vector length: " + _length );
@@ -53,30 +48,30 @@ public class JaVector implements Vector {
             throw new IllegalArgumentException( "Invalid epsilon: " + _epsilon );
 
         vector = new double[_length];
-        epsilon = _epsilon;
     }
 
 
     /**
      * Creates a new instance of this class from the given array, with the default epsilon.  The resulting vector will have the same length as the
-     * given array, and its elements will in the same order and with the same value as those in the given array.
+     * given array, and its entries will in the same order and with the same value as those in the given array.
      *
      * @param _vector the array to create a vector from
      */
 
-    public JaVector( final double[] _vector ) {
+    public ArrayVector( final double[] _vector ) {
         this( _vector, MatrixStuff.DEFAULT_EPSILON );
     }
 
 
     /**
      * Creates a new instance of this class from the given array, with the given epsilon.  The resulting vector will have the same length as the
-     * given array, and its elements will be in the same order and with the same value as those in the given array.
+     * given array, and its entries will be in the same order and with the same value as those in the given array.
      *
      * @param _vector the array to create a vector from
      * @param _epsilon the epsilon to use in equality checking
      */
-    public JaVector( final double[] _vector, final int _epsilon ) {
+    public ArrayVector( final double[] _vector, final int _epsilon ) {
+        super( _epsilon );
 
         if( (_vector == null) || (_vector.length < 1) )
             throw new IllegalArgumentException( "Vector missing or length zero" );
@@ -85,51 +80,51 @@ public class JaVector implements Vector {
             throw new IllegalArgumentException( "Invalid epsilon: " + _epsilon );
 
         vector = _vector;
-        epsilon = _epsilon;
     }
 
 
     /**
      * Creates a new instance of this class that is equivalent to the given vector.  The new vector will have the same length as the given vector,
-     * its elements will be in the same order and with the same value as those in the given vector, and its epsilon will be the same.  This
+     * its entries will be in the same order and with the same value as those in the given vector, and its epsilon will be the same.  This
      * constructor is essentially a copy constructor, except that the give vector may be of any class that implements <code>Vector</code>.
      *
      * @param _vector the Vector to make a copy of
      */
-    public JaVector( final Vector _vector ) {
+    public ArrayVector( final Vector _vector ) {
+        super( (_vector == null) ? 0 : _vector.getEpsilon() );
 
         if( _vector == null )
             throw new IllegalArgumentException( "Vector missing" );
 
         vector = new double[_vector.length()];
-        VectorIterator vi = _vector.iterator( IteratorMode.UNORDERED_AND_SPARSE );
+        VectorIterator vi = _vector.iterator( VectorIteratorOrderMode.UNSPECIFIED, VectorIteratorFilterMode.SPARSE );
         while( vi.hasNext() ) {
-            vector[vi.index()] = vi.next();
+            vi.next();
+            vector[vi.index()] = vi.value();
         }
-
-        epsilon = _vector.getEpsilon();
     }
 
 
     /**
-     * Adds the given vector to this vector, element by element, returning the sum in a new vector.  The vector implementation class of the result
+     * Adds the given vector to this vector, entry by entry, returning the sum in a new vector.  The vector implementation class of the result
      * is the same as that of this instance.  In other words, <code>X[n] = T[n] + S[n]</code>, where <code>X</code> is the returned vector,
      * <code>T</code> is this vector, <code>S</code> is the given vector, and <code>n</code> is the set of all index values
      * <code>0 .. T.length - 1</code>.  Throws an <code>IllegalArgumentException</code> if the given vector is missing or is a different length
      * than this instance.
      *
      * @param _vector the vector to add to this vector.
-     * @return a new vector containing the element-by-element sum of this instance and the given vector.
+     * @return a new vector containing the entry-by-entry sum of this instance and the given vector.
      */
     public Vector add( final Vector _vector ) {
 
         if( !isSameLength( _vector ) )
             throw new IllegalArgumentException( "Vector missing or not the same length" );
 
-        JaVector result = new JaVector( vector.length, epsilon );
-        VectorIterator vi = _vector.iterator( IteratorMode.UNORDERED_AND_SPARSE );
+        ArrayVector result = new ArrayVector( vector.length, epsilon );
+        VectorIterator vi = _vector.iterator( VectorIteratorOrderMode.UNSPECIFIED, VectorIteratorFilterMode.SPARSE );
         while( vi.hasNext() ) {
-            result.vector[vi.index()] = Numbers.subtractWithZeroDetection( vector[vi.index()], -vi.next(), epsilon );
+            vi.next();
+            result.vector[vi.index()] = Numbers.addWithZeroDetection( vector[vi.index()], vi.value(), epsilon );
         }
 
         return result;
@@ -137,24 +132,25 @@ public class JaVector implements Vector {
 
 
     /**
-     * Subtracts the given vector from this vector, element by element, returning the difference in a new vector.  The vector implementation class of
+     * Subtracts the given vector from this vector, entry by entry, returning the difference in a new vector.  The vector implementation class of
      * the result is the same as that of this instance.  In other words, <code>X[n] = T[n] - S[n]</code>, where <code>X</code> is the returned vector,
      * <code>T</code> is this vector, <code>S</code> is the given vector, and <code>n</code> is the set of all index values
      * <code>0 .. T.length - 1</code>.  Throws an <code>IllegalArgumentException</code> if the given vector is missing or is a
      * different length than this instance.
      *
      * @param _vector the vector to subtract from this vector.
-     * @return a new vector containing the element-by-element difference of this instance and the given vector.
+     * @return a new vector containing the entry-by-entry difference of this instance and the given vector.
      */
     public Vector subtract( final Vector _vector ) {
 
         if( !isSameLength( _vector ) )
             throw new IllegalArgumentException( "Vector missing or not the same length" );
 
-        JaVector result = new JaVector( vector.length, epsilon );
-        VectorIterator vi = _vector.iterator( IteratorMode.UNORDERED_AND_SPARSE );
+        ArrayVector result = new ArrayVector( vector.length, epsilon );
+        VectorIterator vi = _vector.iterator( VectorIteratorOrderMode.UNSPECIFIED, VectorIteratorFilterMode.SPARSE );
         while( vi.hasNext() ) {
-            result.vector[vi.index()] = Numbers.subtractWithZeroDetection( vector[vi.index()], vi.next(), epsilon );
+            vi.next();
+            result.vector[vi.index()] = Numbers.subtractWithZeroDetection( vector[vi.index()], vi.value(), epsilon );
         }
 
         return result;
@@ -162,14 +158,15 @@ public class JaVector implements Vector {
 
 
     /**
-     * Adds the given multiple of the given vector to this vector, element by element, returning the sum in a new vector.  The vector implementation
+     * Adds the given multiple of the given vector to this vector, entry by entry, returning the sum in a new vector.  The vector implementation
      * class of the result is the same as that of this instance.  In other words, <code>X[n] = T[n] + S[n] * m</code>, where <code>X</code> is the
      * returned vector, <code>T</code> is this vector, <code>S</code> is the given vector, <code>m</code> is the given multiplier, and <code>n</code>
      * is the set of all index values <code>0 .. T.length - 1</code>.  Throws an <code>IllegalArgumentException</code> if the given vector is missing
      * or is a different length than this instance.
      *
      * @param _vector the vector to add a multiple of to this vector.
-     * @return a new vector containing the element-by-element sum of this instance and the given multiple of the given vector.
+     * @param _multiplier the multiplier
+     * @return a new vector containing the entry-by-entry sum of this instance and the given multiple of the given vector.
      */
     @Override
     public Vector addMultiple( final Vector _vector, final double _multiplier ) {
@@ -177,10 +174,11 @@ public class JaVector implements Vector {
         if( !isSameLength( _vector ) )
             throw new IllegalArgumentException( "Vector missing or not the same length" );
 
-        JaVector result = new JaVector( vector.length, epsilon );
-        VectorIterator vi = _vector.iterator( IteratorMode.UNORDERED_AND_SPARSE );
+        ArrayVector result = new ArrayVector( vector.length, epsilon );
+        VectorIterator vi = _vector.iterator( VectorIteratorOrderMode.UNSPECIFIED, VectorIteratorFilterMode.SPARSE );
         while( vi.hasNext() ) {
-            result.vector[vi.index()] = Numbers.subtractWithZeroDetection( vector[vi.index()], -vi.next() * _multiplier, epsilon );
+            vi.next();
+            result.vector[vi.index()] = Numbers.addWithZeroDetection( vector[vi.index()], vi.value() * _multiplier, epsilon );
         }
 
         return result;
@@ -192,7 +190,7 @@ public class JaVector implements Vector {
      * than zero, or equal to or greater than the vector's length.
      *
      * @param _index the index of the value to get
-     * @return the value of the element at the given index
+     * @return the value of the entry at the given index
      */
     public double get( final int _index ) {
 
@@ -221,9 +219,9 @@ public class JaVector implements Vector {
 
 
     /**
-     * Sets the value of all elements of this vector to the given value.
+     * Sets the value of all entries of this vector to the given value.
      *
-     * @param _value the value to set all elements to
+     * @param _value the value to set all entries to
      */
     public void set( final double _value ) {
         Arrays.fill( vector, _value );
@@ -232,21 +230,8 @@ public class JaVector implements Vector {
 
 
     /**
-     * Returns the value of epsilon used by this instance.  Epsilon is the amount that two values may differ when compared, and still be considered
-     * equal.  It is a technique used to get around the inexact representation of numbers with double precision floating point; otherwise, many
-     * comparisons <i>expected</i> to be equal would instead appear to be unequal.  The value of epsilon is expressed in ulps (Units in the Last
-     * Place), which are the magnitude of the LSB of a floating point number.
-     *
-     * @return the value of epsilon for this vector
-     */
-    public int getEpsilon() {
-        return epsilon;
-    }
-
-
-    /**
-     * Returns the length of this vector, which is the same as the number of elements in the vector (including both empty or zero elements and set
-     * or nonzero elements).
+     * Returns the length of this vector, which is the same as the number of entries in the vector (including both empty or zero entries and set
+     * or nonzero entries).
      *
      * @return the length of this vector
      */
@@ -256,16 +241,16 @@ public class JaVector implements Vector {
 
 
     /**
-     * Returns the number of nonzero (or not empty) elements in this vector.  This operation requires traversing all the elements in the vector to
+     * Returns the number of nonzero (or not empty) entries in this vector.  This operation requires traversing all the entries in the vector to
      * count the ones that are empty.
      *
-     * @return the number of nonzero elements in this vector
+     * @return the number of nonzero entries in this vector
      */
     @Override
-    public int nonZeroElementCount() {
+    public int nonZeroEntryCount() {
         int elementCount = 0;
         for( double n : vector )
-            if( n != 0.0 )  // safe as empty elements are guaranteed to have perfect zeros...
+            if( n != 0.0 )  // safe as empty entries are guaranteed to have perfect zeros...
                 elementCount++;
 
         return elementCount;
@@ -291,7 +276,7 @@ public class JaVector implements Vector {
      * @return true if the given length is the same as the length of this vector
      */
     public boolean isSameLength( final int _length ) {
-        return false;
+        return _length == vector.length;
     }
 
 
@@ -313,12 +298,12 @@ public class JaVector implements Vector {
      * @return a new vector that is a deep copy of this vector
      */
     public Vector deepCopy() {
-        return new JaVector( this );
+        return new ArrayVector( this );
     }
 
 
     /**
-     * Returns a new vector whose element values are this vector's element values multiplied by the given multiplier, element-by-element.  The vector
+     * Returns a new vector whose entry values are this vector's entry values multiplied by the given multiplier, entry-by-entry.  The vector
      * implementation class of the result is the same as that of this instance.  In other words, <code>X[n] = T[n] * m</code>, where <code>X</code> is
      * the returned vector, <code>T</code> is this vector, <code>m</code> is the given multiplier, and <code>n</code> is the set of all index values
      * <code>0 .. T.length - 1</code>.
@@ -328,9 +313,9 @@ public class JaVector implements Vector {
      */
     public Vector multiply( final double _multiplier ) {
 
-        JaVector result = new JaVector( vector.length, epsilon );
+        ArrayVector result = new ArrayVector( vector.length, epsilon );
 
-        VectorIterator vi = iterator( IteratorMode.UNORDERED_AND_SPARSE );
+        VectorIterator vi = iterator( VectorIteratorOrderMode.UNSPECIFIED, VectorIteratorFilterMode.SPARSE );
         while( vi.hasNext() ) {
             result.vector[vi.index()] = vector[vi.index()] * _multiplier;
         }
@@ -357,12 +342,12 @@ public class JaVector implements Vector {
         if( (_end <= _start) || (_end > vector.length) )
             throw new IndexOutOfBoundsException( "End index out of bounds: " + _end );
 
-        return new JaVector( Arrays.copyOfRange( vector, _start, _end ), epsilon );
+        return new ArrayVector( Arrays.copyOfRange( vector, _start, _end ), epsilon );
     }
 
 
     /**
-     * Returns an ordinary array containing the values of all the elements of this instance (both zero or empty values and nonzero or set values).
+     * Returns an ordinary array containing the values of all the entries of this instance (both zero or empty values and nonzero or set values).
      * The size of the array is equal to the length of this vector.
      *
      * @return the array containing all the values of this vector
@@ -373,161 +358,99 @@ public class JaVector implements Vector {
 
 
     /**
-     * Returns a <code>JaVector</code> instance that is exactly equivalent to this vector.  If this vector <i>is</i> an instance of
-     * <code>JaVector</code>, then this vector is simply returned.  Otherwise a new instance of <code>JaVector</code> is created that is a copy of
+     * Returns a <code>ArrayVector</code> instance that is exactly equivalent to this vector.  If this vector <i>is</i> an instance of
+     * <code>ArrayVector</code>, then this vector is simply returned.  Otherwise a new instance of <code>ArrayVector</code> is created that is a copy of
      * this vector.  The resulting vector will compare with this vector as equal using the <code>equals()</code> method on either instance, and the
      * result of <code>hashCode()</code> for each will be the same.
      *
-     * @return a JaVector equivalent to this vector
+     * @return a ArrayVector equivalent to this vector
      */
-    public JaVector toJaVector() {
+    public ArrayVector toArrayVector() {
         return this;
     }
 
 
     /**
-     * Returns a vector iterator over this vector's elements in the given mode.  There are two aspects to the mode, each of which has two
-     * possibilities - so there are four possible combinations of modes.
-     * <ul>
-     *     <li><b>Ordered or unordered:</b> an ordered iterator returns values in index order (though if the iterator is also sparse, some indices
-     *     may be skipped).  An unordered iterator returns values in an unspecified order, not necessarily predictable, and possibly the same as
-     *     when ordered.</li>
-     *     <li><b>Dense or sparse:</b> A dense iterator iterates over <i>all</i> elements in the vector, whether set (nonzero) or empty (zero).  a
-     *     sparse iterator iterates over <i>only</i> the set (nonzero) elements.</li>
-     * </ul>
+     * Returns a vector iterator over this vector's entries in the given order and filter modes.
+     * <p>
+     * The order mode determines the order that the returned iterator will iterate over the vector's entries.  This may be either <i>index</i> order
+     * (which means in numerical index order, <i>0 .. n</i>), or <i>unspecified</i> order (which means any order at all, including <i>index</i>.
+     * Some <code>Vector</code> implementations iterate faster in <i>unspecified</i> order mode.
+     * <p>
+     * The filter mode determines <i>which</i> of this vector's entries the returned iterator will iterate over.  This may be either
+     * <i>unfiltered</i> (which means <i>all</i> entries) or <i>sparse</i> (which means only set, or nonzero, entries).  For sparsely populated
+     * vectors, the <i>sparse</i> filter mode can be significantly faster.
      *
-     * @param _iteratorMode the mode for this iterator: ordered or unordered, dense or sparse
-     * @return the iterator over this vector's elements in the given mode
+     * @param _orderMode the order mode for the returned iterator (either index order or unspecified order)
+     * @param _filterMode the filter mode for the returned iterator (either unfiltered, or set entries)
+     * @return the iterator over this vector's entries in the given order and filter mode
      */
-    public VectorIterator iterator( final IteratorMode _iteratorMode) {
-        return new Iterator( _iteratorMode );
+    public VectorIterator iterator( final VectorIteratorOrderMode _orderMode, final VectorIteratorFilterMode _filterMode ) {
+        return new JAVectorIterator( _orderMode, _filterMode );
     }
 
 
     /**
-     * Returns true if this instance is equal to the given instance.  Note that the result of this method is independent of any particular
-     * implementation of Vector.  Equivalent vectors with different implementations will compare as equal even if the implementation class is
-     * different.
-     *
-     * @param _obj the object to compare for equality with this vector
-     * @return true if the given object is equal to this vector
+     * Implements {@link VectorIterator} for {@link ArrayVector} instances.
      */
-    @Override
-    public boolean equals( final Object _obj ) {
-
-        if( this == _obj )
-            return true;
-
-        if( !(_obj instanceof Vector) )
-            return false;
-
-        Vector vect = (Vector) _obj;
-
-        if( epsilon != vect.getEpsilon() )
-            return false;
-
-        if( vect.length() != vector.length )
-            return false;
-
-        if( hashCode() != vect.hashCode() )
-            return false;
-
-        int elementCount = 0;
-        VectorIterator vi = vect.iterator( IteratorMode.UNORDERED_AND_SPARSE );
-        while( vi.hasNext() ) {
-            elementCount++;
-            if( vi.next() != vector[vi.index()] )  // comparison is ok, as to be equal the values must be identical...
-                return false;
-        }
-
-        return elementCount == nonZeroElementCount();
-    }
+    private class JAVectorIterator extends AVectorIterator implements VectorIterator {
 
 
-    /**
-     * Returns the hash code for this instance.  Note that the hash code is identical for all implementations of Vector, and is based on all non-zero
-     * elements, their indices, and the epsilon.  Other implementation-dependent properties are <i>not</i> included in the hash code.
-     *
-     * @return the hash code for this vector.
-     */
-    @Override
-    public int hashCode() {
-
-        // if we have a cached value, use it...
-        if( !dirty )
-            return hashCache;
-
-        hashCache = MatrixStuff.vectorHash( this );
-        dirty = false;
-        return hashCache;
-    }
-
-
-    private class Iterator implements VectorIterator {
-
-
-        private final IteratorMode iteratorMode;
-        private int index;
-        private boolean hasNext;
-        private int elementCount = -1;
-
-
-        private Iterator( final IteratorMode _iteratorMode ) {
-            iteratorMode = _iteratorMode;
-            index = -1;
+        /**
+         * Creates a new instance of this vector iterator, with the given order and filter modes.
+         *
+         * @param _orderMode the order mode for this vector iterator
+         * @param _filterMode the filter mode for this vector iterator
+         */
+        private JAVectorIterator( final VectorIteratorOrderMode _orderMode, final VectorIteratorFilterMode _filterMode ) {
+            super( _orderMode, _filterMode );
         }
 
 
+        /**
+         * Returns true if and only if this iterator has another entry to return.
+         *
+         * @return true if this iterator has another entry
+         */
         public boolean hasNext() {
+            return indexInternal < vector.length;
+        }
 
-            if( isSparse() ) {
 
-                // zero comparison safe as empty elements are guaranteed to have perfect zeroes...
-                while( (index + 1 < vector.length) && (vector[index + 1] == 0) ) {
-                    index++;
-                }
+        /**
+         * Advances to the next entry.  After invoking this method, the {@link #value()} and {@link #index()} methods will return the values of that
+         * entry.
+         */
+        public void next() {
+
+            if( indexInternal >= vector.length )
+                throw new InvalidStateException( "No values remaining in iterator" );
+
+            // retrieve the value and make it available for the value() getter...
+            value = vector[indexInternal];
+            index = indexInternal;
+
+            // no matter what, we'll always bump the index up at least by one...
+            indexInternal++;
+
+            // then, IF this is a sparse iterator, and IF we're not already at the end, we'll bump past all the perfect zeroes...
+            // zero comparison safe as empty entries are guaranteed to have perfect zeroes...
+            while( (indexInternal < vector.length) && (filterMode == VectorIteratorFilterMode.SPARSE) && (vector[indexInternal] == MatrixStuff.PURE_ZERO) ) {
+                indexInternal++;
             }
-
-            index++;
-            hasNext = index < vector.length;
-
-            return hasNext;
         }
 
 
-        public double next() {
-
-            if( !hasNext )
-                throw new InvalidStateException( "No values remaining in iterator" );
-
-            return vector[index];
-        }
-
-
-        public int index() {
-
-            if( !hasNext )
-                throw new InvalidStateException( "No values remaining in iterator" );
-
-            return index;
-        }
-
-
+        /**
+         * Returns the count of entries that will be returned by this iterator.  For unfiltered iterators, this is always equal to the length of the
+         * vector, and for sparse filtered iterators, it is equal to the number of set (nonzero) entries.  Note that this value is not the
+         * <i>remaining</i> entries, but rather the total that will be returned; this value does not change during iteration.
+         *
+         * @return the count of entries that will be returned by this iterator.
+         */
         @Override
-        public boolean isOrdered() {
-            return true;
-        }
-
-
-        @Override
-        public boolean isSparse() {
-            return (iteratorMode == IteratorMode.ORDERED_AND_SPARSE) || (iteratorMode == IteratorMode.UNORDERED_AND_SPARSE);
-        }
-
-
-        @Override
-        public int elements() {
-            return isSparse() ? nonZeroElementCount() : vector.length;
+        public int entryCount() {
+            return (filterMode == VectorIteratorFilterMode.SPARSE) ? nonZeroEntryCount() : vector.length;
         }
     }
 }

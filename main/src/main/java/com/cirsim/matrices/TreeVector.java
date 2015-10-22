@@ -1,64 +1,65 @@
 package com.cirsim.matrices;
 
 /**
- * Instances of this class wrap concrete <code>Vector</code> instances to disable any mutator methods, thus making the wrapped instance effectively
- * immutable.  Any attempt to use a mutator method results in a <code>UnsupportedOperationException</code> being thrown.
+ * Implements {@link Vector} based on a compressed vector representation that is especially suited for the sorts of sparse vectors found in circuit
+ * simulations, where vectors may be several thousands of entries long, but are under 50% populated (and often as little as 1%).
+ *
+ * implementation: Red/black tree with two longs per node.  First long has two child indexes (shorts), column index value for this node (short), plus
+ * one bit for color (49 bits total).  Second long has raw bits for the double value of this node.  This format "wastes" 15 bits per entry.  Store
+ * blocks of "n" nodes in fixed size long arrays.  Store an array of these block arrays, allocated as needed.  Keep a linked list of empty nodes in
+ * the empty nodes themselves, and allocate new nodes from them first.  Only when that list is empty allocate from end of block.
+ *
+ * note on matrix version: use a double store that allocates stores within an expandable array of blocks, much as in the nodes for TreeVector.  Then
+ * make separate index red/black trees for an RC index and a CR index (thus allowing fast enumeration of either nonzero columns within a row, or
+ * rows within a column).  The data in these red/black trees will be keys into the double store, which need to be 24 bits long.  That means the
+ * indices for the rows and columns need to be 12 bits long (we're assuming almost square matrices).  So a node needs two child indices (24 bits
+ * each), a R or C index (12 bits), a value key (24 bits), and a color (1 bit).  That adds up to 85 bits, too big for one long, quite wasteful (43
+ * bits per node) with two longs.  It could be implemented with 3 ints, wasting 11 bits per node.
  *
  * @author Tom Dilatush  tom@dilatush.com
  */
-public class ImmutableVector implements Vector {
+public class TreeVector extends AVector implements Vector {
 
 
-    // the wrapped mutable Vector instance...
-    private Vector vector;
 
-
-    /**
-     * Creates a new instance of this class that wraps the given <code>Vector</code> to enforce immutability.
-     *
-     * @param _vector the Vector to wrap in immutability
-     */
-    public ImmutableVector( final Vector _vector ) {
-
-        if( _vector == null )
-            throw new IllegalArgumentException( "Vector is missing" );
-
-        vector = _vector;
+    public TreeVector( final int _epsilon ) {
+        super( _epsilon );
     }
 
 
+
     /**
-     * Adds the given vector to this vector, entry by entry, returning the sum in a new vector.  The vector implementation class of the result is
-     * the same as that of this instance.  Throws an <code>IllegalArgumentException</code> if the given vector is missing or is a different length
-     * than this instance.
+     * Adds the given vector to this vector, entry by entry, returning the sum in a new vector.  The vector implementation class of the result is the
+     * same as that of this instance.  Throws an <code>IllegalArgumentException</code> if the given vector is missing or is a different length than
+     * this instance.
      *
      * @param _vector the vector to add to this vector.
      * @return a new vector containing the entry-by-entry sum of this instance and the given vector.
      */
     @Override
     public Vector add( final Vector _vector ) {
-        return vector.add( _vector );
+        return null;
     }
 
 
     /**
-     * Subtracts the given vector from this vector, entry by entry, returning the difference in a new vector.  The vector implementation class of
-     * the result is the same as that of this instance.  Throws an <code>IllegalArgumentException</code> if the given vector is missing or is a
-     * different length than this instance.
+     * Subtracts the given vector from this vector, entry by entry, returning the difference in a new vector.  The vector implementation class of the
+     * result is the same as that of this instance.  Throws an <code>IllegalArgumentException</code> if the given vector is missing or is a different
+     * length than this instance.
      *
      * @param _vector the vector to subtract from this vector.
      * @return a new vector containing the entry-by-entry difference of this instance and the given vector.
      */
     @Override
     public Vector subtract( final Vector _vector ) {
-        return vector.subtract( _vector );
+        return null;
     }
 
 
     /**
-     * Adds the given multiple of the given vector to this vector, entry by entry, returning the sum in a new vector.  The vector implementation
-     * class of the result is the same as that of this instance.  Throws an <code>IllegalArgumentException</code> if the given vector is missing or is
-     * a different length than this instance.
+     * Adds the given multiple of the given vector to this vector, entry by entry, returning the sum in a new vector.  The vector implementation class
+     * of the result is the same as that of this instance.  Throws an <code>IllegalArgumentException</code> if the given vector is missing or is a
+     * different length than this instance.
      *
      * @param _vector     the vector to add a multiple of to this vector.
      * @param _multiplier the multiplier
@@ -66,7 +67,7 @@ public class ImmutableVector implements Vector {
      */
     @Override
     public Vector addMultiple( final Vector _vector, final double _multiplier ) {
-        return vector.addMultiple( _vector, _multiplier );
+        return null;
     }
 
 
@@ -79,7 +80,7 @@ public class ImmutableVector implements Vector {
      */
     @Override
     public double get( final int _index ) {
-        return vector.get( _index );
+        return 0;
     }
 
 
@@ -92,7 +93,7 @@ public class ImmutableVector implements Vector {
      */
     @Override
     public void set( final int _index, final double _value ) {
-        throw new UnsupportedOperationException( "ImmutableVector does not support set()" );
+
     }
 
 
@@ -103,33 +104,7 @@ public class ImmutableVector implements Vector {
      */
     @Override
     public void set( final double _value ) {
-        throw new UnsupportedOperationException( "ImmutableVector does not support set()" );
-    }
 
-
-    /**
-     * Returns the value of epsilon used by this instance.  Epsilon is the amount that two values may differ when compared, and still be considered
-     * equal.  It is a technique used to get around the inexact representation of numbers with double precision floating point; otherwise, many
-     * comparisons <i>expected</i> to be equal would instead appear to be unequal.  The value of epsilon is expressed in ulps (Units in the Last
-     * Place), which are the magnitude of the LSB of a floating point number.
-     *
-     * @return the value of epsilon for this vector
-     */
-    @Override
-    public int getEpsilon() {
-        return vector.getEpsilon();
-    }
-
-
-    /**
-     * Returns the length of this vector, which is the same as the number of entries in the vector (including both empty or zero entries and set or
-     * nonzero entries).
-     *
-     * @return the length of this vector
-     */
-    @Override
-    public int length() {
-        return vector.length();
     }
 
 
@@ -141,7 +116,7 @@ public class ImmutableVector implements Vector {
      */
     @Override
     public int nonZeroEntryCount() {
-        return vector.nonZeroEntryCount();
+        return 0;
     }
 
 
@@ -154,7 +129,7 @@ public class ImmutableVector implements Vector {
      */
     @Override
     public boolean isValidIndex( final int _index ) {
-        return vector.isValidIndex( _index );
+        return false;
     }
 
 
@@ -166,7 +141,7 @@ public class ImmutableVector implements Vector {
      */
     @Override
     public boolean isSameLength( final int _length ) {
-        return vector.isSameLength( _length );
+        return false;
     }
 
 
@@ -178,7 +153,7 @@ public class ImmutableVector implements Vector {
      */
     @Override
     public boolean isSameLength( final Vector _vector ) {
-        return vector.isSameLength( _vector );
+        return false;
     }
 
 
@@ -190,7 +165,7 @@ public class ImmutableVector implements Vector {
      */
     @Override
     public Vector deepCopy() {
-        return vector.deepCopy();
+        return null;
     }
 
 
@@ -205,7 +180,7 @@ public class ImmutableVector implements Vector {
      */
     @Override
     public Vector multiply( final double _multiplier ) {
-        return vector.multiply( _multiplier );
+        return null;
     }
 
 
@@ -221,7 +196,7 @@ public class ImmutableVector implements Vector {
      */
     @Override
     public Vector subVector( final int _start, final int _end ) {
-        return vector.subVector( _start, _end );
+        return null;
     }
 
 
@@ -233,7 +208,7 @@ public class ImmutableVector implements Vector {
      */
     @Override
     public double[] toArray() {
-        return vector.toArray();
+        return new double[0];
     }
 
 
@@ -247,7 +222,19 @@ public class ImmutableVector implements Vector {
      */
     @Override
     public ArrayVector toArrayVector() {
-        return vector.toArrayVector();
+        return null;
+    }
+
+
+    /**
+     * Returns the length of this vector, which is the same as the number of entries in the vector (including both empty or zero entries and set or
+     * nonzero entries).
+     *
+     * @return the length of this vector
+     */
+    @Override
+    public int length() {
+        return 0;
     }
 
 
@@ -255,19 +242,19 @@ public class ImmutableVector implements Vector {
      * Returns a vector iterator over this vector's entries in the given order and filter modes.
      * <p>
      * The order mode determines the order that the returned iterator will iterate over the vector's entries.  This may be either <i>index</i> order
-     * (which means in numerical index order, <i>0 .. n</i>), or <i>unspecified</i> order (which means any order at all, including <i>index</i>.
-     * Some <code>Vector</code> implementations iterate faster in <i>unspecified</i> order mode.
+     * (which means in numerical index order, <i>0 .. n</i>), or <i>unspecified</i> order (which means any order at all, including <i>index</i>. Some
+     * <code>Vector</code> implementations iterate faster in <i>unspecified</i> order mode.
      * <p>
-     * The filter mode determines <i>which</i> of this vector's entries the returned iterator will iterate over.  This may be either
-     * <i>unfiltered</i> (which means <i>all</i> entries) or <i>sparse</i> (which means only set, or nonzero, entries).  For sparsely populated
-     * vectors, the <i>sparse</i> filter mode can be significantly faster.
+     * The filter mode determines <i>which</i> of this vector's entries the returned iterator will iterate over.  This may be either <i>unfiltered</i>
+     * (which means <i>all</i> entries) or <i>sparse</i> (which means only set, or nonzero, entries).  For sparsely populated vectors, the
+     * <i>sparse</i> filter mode can be significantly faster.
      *
-     * @param _orderMode the order mode for the returned iterator (either index order or unspecified order)
+     * @param _orderMode  the order mode for the returned iterator (either index order or unspecified order)
      * @param _filterMode the filter mode for the returned iterator (either unfiltered, or set entries)
      * @return the iterator over this vector's entries in the given order and filter mode
      */
     @Override
     public VectorIterator iterator( final VectorIteratorOrderMode _orderMode, final VectorIteratorFilterMode _filterMode ) {
-        return vector.iterator( _orderMode, _filterMode );
+        return null;
     }
 }

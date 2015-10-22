@@ -171,14 +171,14 @@ public interface Vector {
 
 
     /**
-     * Returns a <code>JAVector</code> instance that is exactly equivalent to this vector.  If this vector <i>is</i> an instance of
-     * <code>JAVector</code>, then this vector is simply returned.  Otherwise a new instance of <code>JAVector</code> is created that is a copy of
+     * Returns a <code>ArrayVector</code> instance that is exactly equivalent to this vector.  If this vector <i>is</i> an instance of
+     * <code>ArrayVector</code>, then this vector is simply returned.  Otherwise a new instance of <code>ArrayVector</code> is created that is a copy of
      * this vector.  The resulting vector will compare with this vector as equal using the <code>equals()</code> method on either instance, and the
      * result of <code>hashCode()</code> for each will be the same.
      *
-     * @return a JAVector equivalent to this vector
+     * @return a ArrayVector equivalent to this vector
      */
-    JAVector toJAVector();
+    ArrayVector toArrayVector();
 
 
     /**

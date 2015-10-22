@@ -9,6 +9,9 @@ import com.cirsim.util.Numbers;
  */
 public class MatrixStuff {
 
+    // Defines the value considered by vectors and matrices to be "empty"...
+    public static final double PURE_ZERO = 0.0d;
+
     // Defines the default maximum number of ulps that two double values may be and still be considered equal within the matrices package...
     public static final int DEFAULT_EPSILON = 10;
 

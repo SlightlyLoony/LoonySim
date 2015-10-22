@@ -81,7 +81,7 @@ public class MapVector extends AVector implements Vector {
         VectorIterator vi = _vector.iterator( VectorIteratorOrderMode.UNSPECIFIED, VectorIteratorFilterMode.SPARSE );
         while( vi.hasNext() ) {
             vi.next();
-            if( vi.value() != 0.0d )
+            if( vi.value() != MatrixStuff.PURE_ZERO )
                 vector.put( vi.index(), vi.value() );
         }
         length = _vector.length();
@@ -178,7 +178,7 @@ public class MapVector extends AVector implements Vector {
             throw new IndexOutOfBoundsException( "Vector index out of bounds: " + _index );
 
         Double result = vector.get( _index );
-        return (result == null) ? 0.0d : result;
+        return (result == null) ? MatrixStuff.PURE_ZERO : result;
     }
 
 
@@ -195,7 +195,7 @@ public class MapVector extends AVector implements Vector {
         if( !isValidIndex( _index ) )
             throw new IndexOutOfBoundsException( "Vector index out of bounds: " + _index );
 
-        if( _value != 0.0d ) {
+        if( _value != MatrixStuff.PURE_ZERO ) {
             vector.put( _index, _value );
             dirty = true;
         }
@@ -209,7 +209,7 @@ public class MapVector extends AVector implements Vector {
      */
     @Override
     public void set( final double _value ) {
-        if( _value == 0.0d ) {
+        if( _value == MatrixStuff.PURE_ZERO ) {
             vector.clear();
             dirty = false;
         }
@@ -370,16 +370,16 @@ public class MapVector extends AVector implements Vector {
 
 
     /**
-     * Returns a <code>JAVector</code> instance that is exactly equivalent to this vector.  If this vector <i>is</i> an instance of
-     * <code>JAVector</code>, then this vector is simply returned.  Otherwise a new instance of <code>JAVector</code> is created that is a copy of
+     * Returns a <code>ArrayVector</code> instance that is exactly equivalent to this vector.  If this vector <i>is</i> an instance of
+     * <code>ArrayVector</code>, then this vector is simply returned.  Otherwise a new instance of <code>ArrayVector</code> is created that is a copy of
      * this vector.  The resulting vector will compare with this vector as equal using the <code>equals()</code> method on either instance, and the
      * result of <code>hashCode()</code> for each will be the same.
      *
-     * @return a JAVector equivalent to this vector
+     * @return a ArrayVector equivalent to this vector
      */
     @Override
-    public JAVector toJAVector() {
-        JAVector result = new JAVector( length, epsilon );
+    public ArrayVector toArrayVector() {
+        ArrayVector result = new ArrayVector( length, epsilon );
         for( Map.Entry<Integer, Double> entry : vector.entrySet() ) {
             result.set( entry.getKey(), entry.getValue() );
         }
@@ -465,7 +465,7 @@ public class MapVector extends AVector implements Vector {
 
                 index = indexInternal;
                 Double val = vector.get( indexInternal );
-                value = (val == null) ? 0.0d : val;
+                value = (val == null) ? MatrixStuff.PURE_ZERO : val;
                 indexInternal++;
             }
         }

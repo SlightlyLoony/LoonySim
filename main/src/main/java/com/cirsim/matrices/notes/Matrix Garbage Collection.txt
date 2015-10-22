@@ -1,0 +1,9 @@
+Matrix Garbage Collection
+
+Some implementations of Matrix may accumulate significant disused memory when the number of entries grows and then shrinks (as during Gaussian
+elimination).  In effect, they need some kind of garbage collection.  In some cases (such as TreeMap), any way I could think of to implement either
+continuous or automatic garbage collection would be painfully slow, and would also impact normal performance.
+
+This leads me to the conclusion that the best way to recompress a sparse matrix with a lot of wasted space is simply to copy it to a new instance.
+Because the only data copied will be the data still in use, the result will be a matrix with a smaller footprint.  To aid in this, the Matrix
+interface will include a method to retrieve the memory utilization.

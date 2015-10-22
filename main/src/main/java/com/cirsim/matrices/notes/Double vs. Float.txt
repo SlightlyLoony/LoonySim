@@ -1,0 +1,17 @@
+Double vs. Float...
+
+The matrices package depends on using the real (float, double) primitives (as opposed to classes) for performance.  There are many reasons why this
+matters, but the two biggest contributors are (1) using primitives eliminates potentially many millions of object creations and destructions during
+a simulation run, and (2) Java doesn't support direct math operations on Double or Float objects.
+
+The fact that we're using primitives and not classes has an unfortunate consequence: we can't use Java's generics support to write a single class that
+will support both kinds of real numbers.  We either have to write two complete sets of interfaces and classes, or we have to choose one.
+
+Being lazy, I took the latter route.  That means I had to pick one.  Should I choose double, and get increased accuracy and numeric range but less
+speed, or should I choose float and get the best speed, but less accuracy and numeric range?  I decided to go with double, on the principle that
+premature optimization is the root of all evil.
+
+If it later becomes clear that a float version is necessary for performance reasons, it should be a fairly straightfoward process to "port" the double
+version over to a float version.  It will be ugly having two complete sets of classes, though.  Naming classes and interfaces will be a bit tricky.
+My initial thought on that is to make "Float" or "Double" be a modifier on the key noun in the name.  For example, the Vector interface would turn
+into FloatVector and DoubleVector; the TreeMatrix would turn into TreeFloatMatrix and TreeDoubleMatrix.  Ugh.
