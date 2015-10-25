@@ -117,7 +117,8 @@ public class Numbers {
 
 
     /**
-     * Returns the integer that is the first even power of two that is equal to or larger than the given number.
+     * Returns the integer that is the first even power of two that is equal to or larger than the given number.  For instance, given 250 this method
+     * will return 256.
      *
      * @param _a the number to find a binary power larger than
      * @return the integer that is the first even power of two that is equal to or larger than the given number
@@ -132,5 +133,17 @@ public class Numbers {
 
         int hb = Integer.highestOneBit( _a );
         return  (hb == _a) ? hb : hb << 1;
+    }
+
+
+    /**
+     * Returns the integer log2 of the first even power of two that is equal to or larger than the given number.  For instance, given 250 this
+     * method will return 8 (because log2(256) = 8).
+     *
+     * @param _a the number to find the log of a binary power larger than
+     * @return the integer log2 of the first even power of two that is equal to or larger than the given number
+     */
+    public static int closestBinaryPowerLog( final int _a ) {
+        return Integer.numberOfTrailingZeros( closestBinaryPower( _a ) );
     }
 }

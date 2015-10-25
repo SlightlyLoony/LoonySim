@@ -14,9 +14,8 @@ import static com.cirsim.util.Numbers.closestBinaryPower;
  */
 public class ExpandingValueStore implements ValueStore {
 
-
     private static final int MIN_INITIAL_BLOCK_SIZE = 4;  // set low so that sparsely populated vectors take little room...
-    private static final int MIN_BLOCK_SIZE         = 32; // to keep us from havng a block array filled with really tiny blocks on small stores...
+    private static final int MIN_BLOCK_SIZE         = 32; // to keep us from having a block array filled with really tiny blocks on small stores...
     private static final int NULL                   = 0xFFFFFF;
     private static final int MAX_ENTRIES            = 0xFFFFFF;
     private static final int SLOT_MASK              = 0xFFFFFF;
@@ -29,6 +28,9 @@ public class ExpandingValueStore implements ValueStore {
     private static final long NAN_EXPONENT = 0x7FF0_0000_0100_0000L;  // bit 24 is set so that a zero slot value won't look like an INF...
     private static final long LONG_SLOT_MASK = (long) SLOT_MASK;
 
+    // we assume 64 bit pointers and 8 byte alignment, to be conservative...
+    private static final long MEMORY_FIXED_OVERHEAD = 16 + 8 * 8; // for object overhead, the seven ints, and pointer to the blocks array...
+
 
     private final int blockSize;
     private final int initialBlockSize;
@@ -38,6 +40,7 @@ public class ExpandingValueStore implements ValueStore {
 
     private int nextSlot;
     private int deletedSlots = NULL;
+    private int unusedSlots;
 
 
     /**
@@ -82,6 +85,7 @@ public class ExpandingValueStore implements ValueStore {
         // if we have any deleted slots, return one of them, undeleted...
         if( deletedSlots != NULL ) {
 
+            unusedSlots--;
             int newSlot = deletedSlots;
             int block = newSlot >>> blockOffsetShift;
             int offset = newSlot & offsetMask;
@@ -134,6 +138,8 @@ public class ExpandingValueStore implements ValueStore {
 
         blocks[block][offset] = Double.longBitsToDouble( NAN_EXPONENT | (LONG_SLOT_MASK & deletedSlots) );
         deletedSlots = _key;
+
+        unusedSlots++;
 
         return value;
     }
@@ -190,6 +196,52 @@ public class ExpandingValueStore implements ValueStore {
     }
 
 
+    /**
+     * Returns an <i>estimate</i> of the total bytes of memory that has been allocated by this instance.  The return value is equal to the sum of the
+     * values returned by {@link #memoryUsed()} and {@link #memoryUnused()}.
+     * <p>
+     * This value must be estimated because actual memory consumed is different for different CPU architectures and Java runtime implementations, and
+     * possibly even on flags used to invoke the runtime.
+     *
+     * @return the estimated bytes of memory allocated by this instance
+     */
+    @Override
+    public long memoryAllocated() {
+        int blockArray = 8 * blocks.length + 16;  // the first dimension, eight bytes per pointer plus Java's array overhead...
+        for( double[] block : blocks )
+            blockArray += 8 * block.length + 16;  // the second dimension, eight bytes per double plus Java's array overhead...
+        return MEMORY_FIXED_OVERHEAD + blockArray;
+    }
+
+
+    /**
+     * Returns an <i>estimate</i> of the total bytes of memory actually in use by this instance.
+     * <p>
+     * This value must be estimated because actual memory consumed is different for different CPU architectures and Java runtime implementations, and
+     * possibly even on flags used to invoke the runtime.
+     *
+     * @return the estimated bytes of memory actually in use by this instance
+     */
+    @Override
+    public long memoryUsed() {
+        return memoryAllocated() - memoryUnused();
+    }
+
+
+    /**
+     * Returns an <i>estimate</i> of the total bytes of memory allocated, but not actually in use by this instance.
+     * <p>
+     * This value must be estimated because actual memory consumed is different for different CPU architectures and Java runtime implementations, and
+     * possibly even on flags used to invoke the runtime.
+     *
+     * @return the estimated bytes of memory allocated but not in use by this instance
+     */
+    @Override
+    public long memoryUnused() {
+        return unusedSlots * 8;
+    }
+
+
     /*
      * T E S T   H A R N E S S
      *
@@ -198,6 +250,15 @@ public class ExpandingValueStore implements ValueStore {
      */
 
 
+    /**
+     * Returns the total bytes allocated in the internal block array.
+     * <p>
+     * This method is present strictly for testing purposes.  There's no purpose for it in actual use, and its use should be avoided, as it may well
+     * have signature changes or disappear.  In other words, it is <i>not</i> supported API!
+     *
+     * @return the total bytes allocated in the internal block array
+     */
+    @Deprecated
     public int getAllocatedSize() {
         int result = 0;
         int block = 0;

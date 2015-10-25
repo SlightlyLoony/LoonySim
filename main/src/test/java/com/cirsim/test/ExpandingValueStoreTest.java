@@ -30,6 +30,10 @@ public class ExpandingValueStoreTest {
         for( int i = 0; i < 1000; i++) {
             assertEquals( i, vs.get( i ), 0 );
         }
+
+        assertEquals( vs.memoryAllocated(), vs.memoryUsed() + vs.memoryUnused() );
+        assertEquals( 9040, vs.memoryUsed() );
+        assertEquals( 0, vs.memoryUnused() );
     }
 
     @Test
@@ -45,6 +49,10 @@ public class ExpandingValueStoreTest {
         for( int i = 0; i < max; i++) {
             assertEquals( i, vs.get( i ), 0 );
         }
+
+        assertEquals( vs.memoryAllocated(), vs.memoryUsed() + vs.memoryUnused() );
+        assertEquals( 134218576, vs.memoryUsed() );
+        assertEquals( 0, vs.memoryUnused() );
     }
 
     @Test
@@ -60,6 +68,10 @@ public class ExpandingValueStoreTest {
             assertEquals( i, vs.get( i ), 0 );
         }
         assertTrue( vs.getAllocatedSize() == 16 );
+
+        assertEquals( vs.memoryAllocated(), vs.memoryUsed() + vs.memoryUnused() );
+        assertEquals( 232, vs.memoryUsed() );
+        assertEquals( 0, vs.memoryUnused() );
     }
 
     @Test
@@ -108,13 +120,22 @@ public class ExpandingValueStoreTest {
         for( int i = 0; i < 1024; i++)
             vs.create();
 
+        assertEquals( vs.memoryAllocated(), vs.memoryUsed() + vs.memoryUnused() );
+        assertEquals( 9040, vs.memoryUsed() );
+        assertEquals( 0, vs.memoryUnused() );
+
         // delete 400 of them
         for( int i = 0; i < 400; i++)
             vs.delete( i );
 
+        assertEquals( vs.memoryAllocated(), vs.memoryUsed() + vs.memoryUnused() );
+        assertEquals( 5840, vs.memoryUsed() );
+        assertEquals( 3200, vs.memoryUnused() );
+
         // fill them the again and make sure we have 1024 allocated
         for( int i = 0; i < 400; i++)
             vs.create();
+
         assertEquals( 1024, vs.getAllocatedSize() );
     }
 
