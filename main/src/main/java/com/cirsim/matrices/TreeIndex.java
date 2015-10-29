@@ -1,7 +1,5 @@
 package com.cirsim.matrices;
 
-import com.cirsim.util.Numbers;
-
 import java.util.Arrays;
 import java.util.HashSet;
 
@@ -12,14 +10,13 @@ import static com.cirsim.util.Numbers.closestBinaryPower;
  */
 
 /*
- * References in code comments prefaced with "CLR:" are references to the book "Introduction to Algorithms", by Thomas H. Cormen, Charles E.
- * Leiserson, and Ronald L. Rivest.  Page numbers refer to the pages in the first edition, second printing of 1990, ISBN 0-262-03141-8.
+ * References in code comments prefaced with "CLR:xx@ll" are references to the book "Introduction to Algorithms", by Thomas H. Cormen, Charles E.
+ * Leiserson, and Ronald L. Rivest in the third edition, first printing of 2009, ISBN 978-0-262-03384-8, where "xx" is the page number (or range)
+ * and "ll" is the line number (or range).
  */
 public class TreeIndex implements Index {
 
-    public static final int MAX_ENTRIES = 4096;
-    public static final int NULL        = 0xFFF;
-    public static final int VALUE_NULL  = 0xFF_FFFF;
+    public static final int MAX_ENTRIES = 4095;
 
     private static final int MIN_INITIAL_BLOCK_SIZE = 4;  // set low so that sparsely populated trees take little room...
     private static final int MIN_BLOCK_SIZE         = 32; // to keep us from having a block array filled with really tiny blocks on small stores...
@@ -28,12 +25,12 @@ public class TreeIndex implements Index {
     private final int blockOffsetMask;
     private final int initialBlockSize;
     private final int blockSize;
-    private final Stack stack;
 
     private long[][] blocks;
     private int deletedNodes;
     private int nextSlot;
     private int treeRoot;
+    private int size;
 
 
     public TreeIndex( final int _minEntries, final int _maxEntries ) {
@@ -59,15 +56,12 @@ public class TreeIndex implements Index {
         // determine the mask and shift for decoding slots into block numbers and offsets...
         blockOffsetMask = blockSize - 1;
         blockOffsetShift = Integer.numberOfTrailingZeros( blockSize );
-
-        // determine the stack size and initialize it...
-        stack = new Stack( Numbers.closestBinaryPowerLog( _maxEntries ) << 1 );
     }
 
 
     /**
      * Returns the 24 bit integer value associated with the given key, or the special value VALUE_NULL if the given key is not contained in the
-     * index, but <i>is</i> within the range of the index.  If the given key is out of range (negative or greater than the index's capacity), an
+     * index, but <i>is</i> within the range of the index.  If the given key is out of range (negative or greater than 4094), an
      * {@link IllegalArgumentException} is thrown.
      *
      * @param _key the key to look up the associated value with
@@ -75,21 +69,312 @@ public class TreeIndex implements Index {
      */
     @Override
     public int get( final int _key ) {
-        return getValue( _key );
+
+        if( (_key < 0) || (_key >= MAX_ENTRIES) )
+            throw new IllegalArgumentException( "Key out of range: " + _key );
+
+        // walk down the tree until we find our value, or fail...
+        // done with a loop for speed (saves call overhead on recursion)...
+        int index = treeRoot;
+        long bits = 0;
+
+        // search until we find our key or run out of tree entries...
+        while( true ) {
+
+            // if we have a null index, we've hit the end of the (tree) road...
+            if( index == NULL )
+                break;
+
+            // if this node contains the key we're looking for, time to end this search...
+            bits = getNodeBits( index );
+            int key = Node.key( bits );
+            if( key == _key )
+                break;
+
+            // otherwise, set the index to the next node we need to search...
+            index = (key > _key) ? Node.leftChild( bits ) : Node.rightChild( bits );
+        }
+
+        return (index == NULL) ? VALUE_NULL : Node.value( bits );
     }
 
 
     /**
      * Puts the given 24 bit integer value into the index, and associates it with the given key.  If the given key is out of range (negative or
      * greater than the index's capacity), an {@link IllegalArgumentException} is thrown.  If the given value is outside the range of a 24 bit
-     * unsigned integer, is negative, or is equal to the special value NULL (0xFFFFFF), an {@link IllegalArgumentException} is thrown.
+     * unsigned integer, is negative, or is equal to the special value VALUE_NULL (0xFFFFFF), an {@link IllegalArgumentException} is thrown.  If
+     * there was a previous value associated with this key, that value is returned.  Otherwise, a VALUE_NULL is returned.
      *
-     * @param _key   the key to associate the value with, and store in the index
+     * @param _key the key to associate the value with, and store in the index
      * @param _value the value to associate with the key
+     * @return the previous value associated with the given key, or VALUE_NULL if there was none.
      */
     @Override
-    public void put( final int _key, final int _value ) {
-        putTree( _key, _value );
+    public int put( final int _key, final int _value ) {
+
+        if( (_key < 0) || (_key >= MAX_ENTRIES) )
+            throw new IllegalArgumentException( "Key out of range: " + _key );
+
+        if( (_value < 0) || (_value >= VALUE_NULL) )
+            throw new IllegalArgumentException( "Value out of range: " + _value );
+
+        // algorithm below lifted straight from CLR: page 315, but modified to eliminate mirrored code...
+
+        // if we already have a node with the given index, just update its value (does the same as CLR:315@1-10)...
+        Ref y = search( _key );
+        if( y.isNULL() && y.isTreeRoot() ) {  // if we got a reference to the tree's root, create it fill it in, and leave...
+            Node node = Node.newNode( _key, _value );
+            node.isRed = false;
+            node.key = _key;
+            int index = allocateNode();
+            putNodeBits( index, node.encode() );
+            treeRoot = index;
+            return VALUE_NULL;
+        }
+        else if( y.notNULL() ) {  // if we got a reference to a node with our key, just update the value and leave...
+            y.value( _value );
+            return VALUE_NULL;
+        }
+
+        // if we get here, then we have to insert a new node where the NULL y reference (returned from search() above) is in the tree...
+        // save the direction of things, based on whether y is the left or right child of its parent...
+        Dir dir = y.whichChild;
+
+        // create the new node, store it in the tree, make it y (does the same as CLR:315@11-16)...
+        Ref z = y.parent().child( dir, _key, _value );
+
+        // fix up any violations of our basic principles...
+        putFixup( z );
+
+        return VALUE_NULL;
+    }
+
+
+    private void putFixup( final Ref _z ) {
+
+        Ref z = _z;
+
+        // below is lifted straight from CLR:316, except that the mirrored code has been removed...
+
+        // while z's parent is red (CLR:316@1)...
+        while( !z.isTreeRoot() && z.parent().isRed() ) {
+
+            Ref y = z.uncle();
+            Dir dir = z.parent().whichChild; // controls direction of several things, to remove mirrored code...
+
+            // if the uncle is red, we have the simple case 1 (CLR:316@4-8)...
+            if( y.isRed() ) {
+
+                // handle the simple recoloring case...
+                z.parent().paintBlack();
+                y.paintBlack();
+                z.grandparent().paintRed();
+                z = z.grandparent();
+            }
+
+            // otherwise, we have the more complex cases (CLR:316@9)...
+            else {
+
+                // if y and z are on the same side of their parents, set z to its parent and rotate the right way (CLR:316@9-11, case 2)...
+                if( y.whichChild == z.whichChild ) {
+                    z = z.parent();
+                    rotate( dir, z );
+                }
+
+                // paint some new colors and rotate right (CLR:316@12-14, case 3)...
+                z.parent().paintBlack();
+                z.grandparent().paintRed();
+                rotate( dir.oppo(), z.grandparent() );
+            }
+        }
+
+        // paint the root black (CLR: page 168, line 18)...
+        z.root().paintBlack();
+    }
+
+
+    /**
+     * Removes the given key and its associated value from this index.  If the given key is out of range (negative or greater than the index's
+     * capacity), an {@link IllegalArgumentException} is thrown.  The value associated with the given key is returned.  If the given key isn't in this
+     * index, a VALUE_NULL is returned.
+     *
+     * @param _key the key to remove from this index
+     * @return the value previously associated with the given key, or VALUE_NULL if there was none.
+     */
+    @Override
+    public int remove( final int _key ) {
+
+        if( (_key < 0) || (_key >= MAX_ENTRIES) )
+            throw new IllegalArgumentException( "Key out of range: " + _key );
+
+        // if the tree is empty, just leave with a VALUE_NULL return value...
+        if( treeRoot == NULL )
+            return VALUE_NULL;
+
+        // if we don't have an entry with the given key, just bail out with a VALUE_NULL return value...
+        Ref z = search( _key );
+        if( z.isNULL() )
+            return VALUE_NULL;
+
+        // algorithm lifted straight from CLR:323-329, but modified to work with NULLs, removed mirrored code...
+
+        // some positions we'll need...
+        Ref y;
+        Ref x;
+
+        // save the old value so that we can return it when we're all finished...
+        int oldValue = z.value();
+
+        // for the moment, assume that we're splicing out the node we're deleting (CLR:324@1)...
+        y = z;
+
+        // if we have the easy case of z having a single child, handle that (CLR:324@2-8)...
+        boolean yWasBlack = y.isBlack();
+        if( z.leftChild().isNULL() ) {
+            x = z.rightChild();
+            transplant( z, z.rightChild() );
+        }
+        else if( z.rightChild().isNULL() ) {
+            x = z.leftChild();
+            transplant( z, z.leftChild() );
+        }
+
+        // otherwise we have the more challenging case of z having two children (CLR:324@9-20)...
+        else {
+            y = minimum( z.rightChild() );  // finds the minimum node (smallest key) greater than z's key...
+            yWasBlack = y.isBlack();
+            x = y.rightChild();
+            if( !z.equals( y.parent() )){
+                transplant( y, y.rightChild() );
+                y.rightChild( z.rightChild() );
+            }
+            transplant( z, y );
+            y.leftChild( z.leftChild() );
+            y.paintLike( z );
+        }
+
+        // if we need to fix things up, go do it (CLR:324@21-22)...
+        if( yWasBlack ) removeFixup( x );
+
+        deleteNode( z.index() );  // get rid of the node in our tree storage...
+
+        return oldValue;
+    }
+
+
+    /**
+     * Fixes up any red/black tree principle violations after the basic node removal operation.
+     *
+     * @param _x the child below the removal splice
+     */
+    private void removeFixup( final Ref _x ) {
+
+        // algorithm lifted from CLR:326...
+
+        Ref x = _x;
+
+        // so long as we still have fixing to do (CLR:326@1)...
+        while( !x.isTreeRoot() && x.isBlack() ) {
+
+            // get the direction this thing is working in (used to remove mirrored code, CLR:326@22)...
+            Dir dir = x.whichChild;
+
+            // get the sibling of our fixup node (CLR:326@2-3)...
+            Ref w = x.parent().child( dir.oppo() );
+
+            // handle case 1 (CLR:326@4-8)...
+            if( w.isRed() ) {
+                w.paintBlack();
+                x.parent.paintRed();
+                rotate( dir, x.parent() );
+                w = x.parent().child( dir.oppo() );
+            }
+
+            // handle case 2 (CLR:326@9-11)...
+            if( w.leftChild().isBlack() && w.rightChild().isBlack() ) {
+                w.paintRed();
+                x = x.parent();
+            }
+
+            // handle cases 3 and 4 (CLR:326@12)...
+            else {
+
+                // handle case 3 (CLR:326@12-16)...
+                if( w.child( dir.oppo() ).isBlack() ) {
+                    w.child( dir ).paintBlack();
+                    w.paintRed();
+                    rotate( dir.oppo(), w );
+                    w = x.parent().child( dir.oppo() );
+                }
+
+                // handle case 4 (CLR:326@17-21)...
+                w.paintLike( x.parent() );
+                x.parent().paintBlack();
+                w.child( dir.oppo() ).paintBlack();
+                rotate( dir, x.parent() );
+                x = x.root();
+            }
+        }
+
+        // make sure the root is black (CLR:326@23)...
+        x.paintBlack();
+    }
+
+
+    private Ref minimum( final Ref _z ) {
+        Ref x = _z;
+        while( x.leftChild().notNULL() )
+            x = x.leftChild();
+        return x;
+    }
+
+
+    private void transplant( final Ref _u, final Ref _v ) {
+        if( _u.isTreeRoot() ) {
+            treeRoot = _v.index();
+            _v.parent = _u.parent;
+        }
+        else if( _u.isLeftChild() )
+            _u.parent().leftChild( _v );
+        else
+            _u.parent().rightChild( _v );
+    }
+
+
+    /**
+     * Returns the number of keys (and their associated values) are contained in this index.
+     *
+     * @return the number of keys (and their associated values) are contained in this index
+     */
+    @Override
+    public int size() {
+        return size;
+    }
+
+
+    /**
+     * Searches the tree for the given key, and returns a reference either the desired node (if it's already present) or to the NULL node where the
+     * desired entry would have been if present.  If we started with an empty tree, this method will create the entry as the tree's root and return a
+     * reference to it.
+     *
+     * @param _key the key to search for
+     * @return a reference to either the desired node (if present) or a NULL node in the right place
+     */
+    private Ref search( final int _key ) {
+
+        // if we have an empty tree, just return a NULL reference with no parent...
+        if( treeRoot == NULL )
+            return new Ref( NULL );
+
+        // start our search at the root...
+        Ref current = new Ref( treeRoot );
+
+        // search until we find our key or run out of tree entries...
+        while( current.notNULL() && (_key != current.key()) ) {
+            current = (current.key() > _key) ? current.leftChild() : current.rightChild();
+        }
+
+        return current;
     }
 
 
@@ -157,150 +442,30 @@ public class TreeIndex implements Index {
     }
 
 
-    /**\
-     *  Puts the given value into the tree at the given key.  If the tree already contains an entry with that key, the associated value is
-     *  updated and the previous value returned.  If the tree has no entry at that key, the entry is inserted and assigned the given value, and
-     *  VALUE_NULL is returned.
-     *
-     * @param _key the key to save a value for
-     * @param _value the value to associate with the given key
-     * @return the former value associated with the given key, or VALUE_NULL if there was none
-     */
-    private int putTree( final int _key, final int _value ) {
+    private void rotate( final Dir _dir, final Ref _x ) {
 
-        // if the tree is empty, just store the new node as the root node and leave...
-        if( treeRoot == NULL ) {
-            int index = allocateNode();
-            Node newNode = Node.newNode( _key, _value );
-            newNode.isRed = false;
-            putNode( index, newNode );
-            treeRoot = index;
-            return VALUE_NULL;
-        }
+        // algorithm lifted from CLR:313...
 
-        // we reuse the stack to avoid the overhead of destroying and reallocating it...
-        stack.clear();
-
-        // if we already have a node with the given index, just update its value...
-        if( walkToPut( treeRoot, _key ) ) {
-            return stack.top.value( _value );
-        }
-
-        // if we get here, then we have to insert a new node at the right place in the tree...
-        // note that the top of stack will contain the correct parent for our new node...
-
-        // create the new node, store it in the tree, and push it on our stack...
-        int newIndex = allocateNode();
-        long newBits = Node.newNode( _key, _value ).encode();
-        putNodeBits( newIndex, newBits );
-        if( stack.top.key() > _key )
-            stack.top.leftChild( newIndex );
-        else
-            stack.top.rightChild( newIndex );
-        stack.push( newIndex, newBits );
-
-        // algorithm lifted straight from CLR: page 268, but modified to eliminate mirrored code and to work without parent pointers...
-
-        // while x is not the root and x's parent is red...
-        Stack.Position x = stack.top;
-        while( !x.isTreeRoot() && x.parent().isRed() ) {
-
-            // if x's parent is its grandparent's left child, then its uncle is the grandparent's right child (and vice versa)...
-            // this determines whether several things below operate on right or left side...
-            boolean uncleOnRight = x.parent().index() == x.grandparent().leftChild();
-
-            int uncleIndex = uncleOnRight ? x.grandparent().rightChild() : x.grandparent().leftChild();
-            if( isNotNullAndRed( uncleIndex ) ) {
-
-                // handle the simple recoloring case...
-                x.parent().paintBlack();
-                paintBlackIfNotNull( uncleIndex );
-                x.grandparent().paintRed();
-                x = x.grandparent();
-            }
-            else {
-
-                // if the x is the right child of its parent, set x to its parent and rotate left
-                if( x.index() == (uncleOnRight ? x.parent().rightChild() : x.parent().leftChild()) ) {
-                    rotate( uncleOnRight ? Dir.LEFT : Dir.RIGHT, x.parent() );
-                    stack.swap( x, x.parent() );   //  correcting the stack;  this has the side-effect of making x's parent become x...
-                }
-
-                // paint some new colors and rotate right (CLR: page 268, lines 14-16)...
-                x.parent().paintBlack();
-                x.grandparent().paintRed();
-                rotate( uncleOnRight ? Dir.RIGHT : Dir.LEFT, x.grandparent() );
-                stack.delete( x.grandparent() );   // correcting the stack for the effects of rotation...
-            }
-        }
-
-        // paint the root black (CLR: page 168, line 18)...
-        putNodeBits( treeRoot, Node.paintBlack( getNodeBits( treeRoot ) ) );
-
-        return VALUE_NULL;
-    }
-
-
-    private void paintBlackIfNotNull( final int _index ) {
-        if( _index != NULL )
-            putNodeBits( _index, Node.paintBlack( getNodeBits( _index ) ) );
-    }
-
-
-    private boolean isNotNullAndRed( final int _index ) {
-
-        // leaves are black by definition...
-        return (_index != NULL) && Node.isRed( getNodeBits( _index ) );
-    }
-
-
-    // algorithm from CLR: page 266, figure 14.3...
-    private void rotate( final Dir _dir, final Stack.Position _pos ) {
-
-        boolean isLeft = (_dir == Dir.LEFT);
-
-        // get the right child of the current node (which is one higher on the stack in our case)...
-        // CLR: page 266, line 1...
+        // get the right child of the current node, modified to remove need for a RIGHT-ROTATE() (CLR:313@1)...
         @SuppressWarnings("UnnecessaryLocalVariable")
-        Stack.Position x = _pos;
-        Stack.Position y = _pos.child();
-        Stack.Position p = _pos.parent();
+        Ref x = _x;
+        Ref y = x.child( _dir.oppo() );
 
-        // move y's left subtree to x's right child...
-        // CLR: page 266, lines 2-5 (note that parent fixups are not required in our parent-less tree)...
-        if( isLeft ) x.rightChild( y.leftChild() ); else x.leftChild( y.rightChild() );
+        // move y's left subtree to x's right child (CLR:313@2-5)...
+        x.child( _dir.oppo(), y.child( _dir ) );
 
-        // if the current node was the root, now y is (CLR: page 266, lines 6-7)...
-        // otherwise, point x's parent to y instead of x (CLR: page 266, lines 8-10)...
-        if( x.isTreeRoot() )
+        // if the current node was the root, now y is (CLR:313@6-7)...
+        if( x.isTreeRoot() ) {
             treeRoot = y.index();
-        else if( x.index() == p.leftChild() )
-            p.leftChild( y.index() );
+            y.parent = null;
+        }
+
+        // otherwise, point x's parent to y instead of x (CLR:313@8-9)...
         else
-            p.rightChild( y.index() );
+            x.parent().child( x.whichChild, y );
 
-        // make the x the left child of y (CLR: page 266, lines 11-12, but note the parent fixup is not required)...
-        if( isLeft ) y.leftChild( x.index() ); else y.rightChild( x.index() );
-    }
-
-
-    private boolean walkToPut( final int _index, final int _key ) {
-
-        // if we have a NULL index, the given index wasn't found...
-        if( _index == NULL )
-            return false;
-
-        // get the basic information and push it onto our stack...
-        long bits = getNodeBits( _index );
-        stack.push( _index, bits );
-
-        // if this node has the index we're searching for, return with our glorious success (info is at top of stack)...
-        int key = Node.key( bits );
-        if( key == _key )
-            return true;
-
-        // otherwise, we need to keep right on searching...
-        return (key > _key) ? walkToPut( Node.leftChild( bits ), _key ) : walkToPut( Node.rightChild( bits ), _key ) ;
+        // make the x the child of y (CLR:313@11-12)...
+        y.child( _dir, x );
     }
 
 
@@ -312,12 +477,13 @@ public class TreeIndex implements Index {
      */
     @Deprecated
     public Stats validate() {
-        return validationWalk( treeRoot, new HashSet<Integer>() );
+        return (treeRoot == NULL) ? new Stats() : validationWalk( treeRoot, new HashSet<>(), -1 );
     }
 
 
-    private Stats validationWalk( final int _index, final HashSet<Integer> _circularity ) {
+    private Stats validationWalk( final int _index, final HashSet<Integer> _circularity, final int _lastKey ) {
         Node node = getNode( _index );
+        Stats mine = new Stats();
         Stats left = new Stats();
         Stats right = new Stats();
 
@@ -327,16 +493,25 @@ public class TreeIndex implements Index {
         if( !beenHere ) {
 
             if( node.leftChild != NULL ) {
-                left = validationWalk( node.leftChild, _circularity );
+                left = validationWalk( node.leftChild, _circularity, _lastKey );
+                if( node.key < left.key ) {
+                    mine.valid = false;
+                    out( "Child key out of order: " + node.key + " < " + left.key );
+                }
+            } else {
+                if( node.key < _lastKey ) {
+                    mine.valid = false;
+                    out( "My key out of order: " + node.key + " < " + _lastKey );
+                }
             }
 
             if( node.rightChild != NULL ) {
-                right = validationWalk( node.rightChild, _circularity );
+                right = validationWalk( node.rightChild, _circularity, node.key );
             }
         }
 
-        Stats mine = new Stats();
         mine.isRed = node.isRed;
+        mine.key = node.key;
         if( node.isRed && (left.isRed || right.isRed) ) {
             mine.valid = false;
             out( "Node with key " + node.key + ", at index " + _index + " is red and has at least one red child" );
@@ -377,6 +552,7 @@ public class TreeIndex implements Index {
         public int reds = 0;
         public int blacks = 0;
         public int nodes = 0;
+        public int key = 0;
 
         public String toString() {
             StringBuilder sb = new StringBuilder();
@@ -405,209 +581,228 @@ public class TreeIndex implements Index {
     }
 
 
-    private class Stack {
+    private class Ref {
 
-        private final long[] bits;
-        private final int[]  index;
-//        private int sp;
-        private Position top;
+        private int index;
+        private Ref parent;
+        private Dir whichChild;
+        private Ref leftChild;
+        private Ref rightChild;
 
 
-        private Stack( final int _depth ) {
-            bits = new long[_depth];
-            index = new int[_depth];
-            clear();
+        private Ref( final int _index ) {
+            index = _index;
         }
 
 
-        private void clear() {
-            top = new Position( -1 );
+        private Ref( final int _index, final Ref _parent, final Dir _whichChild ) {
+            index = _index;
+            parent = _parent;
+            whichChild = _whichChild;
         }
 
 
-        private void push( final int _index, final long _bits ) {
-            top = top.inc();
-            index[top.pos] = _index;
-            bits[top.pos] = _bits;
+        private long bits() {
+            if( index == NULL )
+                throw new IllegalStateException( "Attempt to dereference NULL index" );
+            return getNodeBits( index );
         }
 
 
-        private void swap( final Position _a, final Position _b ) {
-            long bs       = _a.bits();
-            int ns        = _a.index();
-
-            bits [_a.pos] = bits [_b.pos];
-            index[_a.pos] = index[_b.pos];
-
-            bits [_b.pos] = bs;
-            index[_b.pos] = ns;
+        private int index() {
+            return index;
         }
 
 
-        private void delete( Position _a ) {
-            if( (_a.pos > top.pos || ((_a.pos) < 0)) )
-                throw new IllegalArgumentException( "Delete position: " + _a );
-
-            System.arraycopy( bits,  _a.pos + 1, bits,  _a.pos, top.pos - _a.pos );
-            System.arraycopy( index, _a.pos + 1, index, _a.pos, top.pos - _a.pos );
-            top = top.dec();
+        private boolean isTreeRoot() {
+            return parent == null;
         }
 
 
-        private class Position {
-
-            private final int pos;
-
-            private Position( final int _pos ) {
-                pos = _pos;
-            }
-
-
-            private Position inc() {
-                return new Position( pos + 1 );
-            }
-
-
-            private Position dec() {
-                return new Position( pos - 1 );
-            }
-
-
-            private long bits() {
-                return bits[pos];
-            }
-
-
-            private long bits( final long _bits ) {
-                long oldBits = bits[pos];
-                bits[pos] = _bits;
-                putNodeBits( index[pos], _bits );
-                return oldBits;
-            }
-
-
-            private int index() {
-                return index[pos];
-            }
-
-
-            private boolean isTreeRoot() {
-                return index[pos] == treeRoot;
-            }
-
-
-            private int value() {
-                return Node.value( bits[pos] );
-            }
-
-
-            private int value( final int _value ) {
-                int oldValue = Node.value( bits[pos] );
-                bits[pos] = Node.replaceValue( bits[pos], _value );
-                putNodeBits( index[pos], bits[pos] );
-                return oldValue;
-            }
-
-
-            private int key() {
-                return Node.key( bits[pos] );
-            }
-
-
-            private int leftChild() {
-                return Node.leftChild( bits[pos] );
-            }
-
-
-            private int leftChild( final int _index ) {
-                int oldLeftChild = Node.leftChild( bits[pos] );
-                bits[pos] = Node.replaceLeftChild( bits[pos], _index );
-                putNodeBits( index[pos], bits[pos] );
-                return oldLeftChild;
-            }
-
-
-            private int rightChild() {
-                return Node.rightChild( bits[pos] );
-            }
-
-
-            private int rightChild( final int _index ) {
-                int oldRightChild = Node.rightChild( bits[pos] );
-                bits[pos] = Node.replaceRightChild( bits[pos], _index );
-                putNodeBits( index[pos], bits[pos] );
-                return oldRightChild;
-            }
-
-
-            private boolean isRed() {
-                return Node.isRed( bits[pos] );
-            }
-
-
-            private boolean isBlack() {
-                return Node.isBlack( bits[pos] );
-            }
-
-
-            private void paintRed() {
-                bits[pos] = Node.paintRed( bits[pos] );
-                putNodeBits( index[pos], bits[pos] );
-            }
-
-
-            private void paintBlack() {
-                bits[pos] = Node.paintBlack( bits[pos] );
-                putNodeBits( index[pos], bits[pos] );
-            }
-
-
-            private Position parent() {
-                return new Position( pos - 1 );
-            }
-
-
-            private Position grandparent() {
-                return new Position( pos - 2 );
-            }
-
-
-            private Position child() {
-                return new Position( pos + 1 );
-            }
-
-            public String toString() {
-                return "" + pos;
-            }
+        private boolean isLeftChild() {
+            return whichChild == Dir.LEFT;
         }
-    }
 
 
-    /**
-     * Return the value associated with the given index.  If there is no entry in the tree with the given index, return VALUE_NULL.
-     *
-     * @param _index the index to find a value for
-     * @return the value associated with the given index
-     */
-    private int getValue( final int _index ) {
-
-        int index = walkTo( treeRoot, _index );
-        return (index == NULL) ? -1 : Node.value( getNodeBits( _index ) );
-    }
+        private boolean isRightChild() {
+            return whichChild == Dir.RIGHT;
+        }
 
 
-    private int walkTo( final int _index, final int _key ) {
+        private boolean isNULL() {
+            return index == NULL;
+        }
 
-        if( _index == NULL )
-            return NULL;
 
-        long bits = getNodeBits( _index );
-        int key = Node.key( bits );
+        private boolean notNULL() {
+            return index != NULL;
+        }
 
-        if( key == _key )
-            return _index;
 
-        return (key > _key) ? walkTo( Node.leftChild( bits ), _key ) : walkTo( Node.rightChild( bits ), _key );
+        private int value() {
+            return Node.value( bits() );
+        }
+
+
+        private int value( final int _value ) {
+            long oldBits = bits();
+            int oldValue = Node.value( oldBits );
+            long newBits = Node.replaceValue( oldBits, _value );
+            putNodeBits( index, newBits );
+            return oldValue;
+        }
+
+
+        private int key() {
+            return Node.key( bits() );
+        }
+
+
+        private int key( final int _key ) {
+            long oldBits = bits();
+            int oldKey = Node.key( oldBits );
+            long newBits = Node.replaceKey( oldBits, _key );
+            putNodeBits( index(), newBits );
+            return oldKey;
+        }
+
+
+        private Ref leftChild() {
+            if( leftChild == null )
+                leftChild = new Ref( Node.leftChild( bits() ), this, Dir.LEFT );
+            return leftChild;
+        }
+
+
+        private Ref leftChild( final Ref _newChild ) {
+            _newChild.parent = this;
+            _newChild.whichChild = Dir.LEFT;
+            long newBits = Node.replaceLeftChild( bits(), _newChild.index );
+            putNodeBits( index, newBits );
+            leftChild = _newChild;
+            return leftChild;
+        }
+
+
+        private Ref leftChild( final int _key, final int _value ) {
+            int newIndex = allocateNode();
+            long newBits = Node.newNode( _key, _value ).encode();
+            putNodeBits( newIndex, newBits );
+            return leftChild( new Ref( newIndex ) );
+        }
+
+
+        private Ref rightChild() {
+            if( rightChild == null )
+                rightChild = new Ref( Node.rightChild( bits() ), this, Dir.RIGHT );
+            return rightChild;
+        }
+
+
+        private Ref rightChild( final Ref _newChild ) {
+            _newChild.parent = this;
+            _newChild.whichChild = Dir.RIGHT;
+            long newBits = Node.replaceRightChild( bits(), _newChild.index );
+            putNodeBits( index, newBits );
+            rightChild = _newChild;
+            return rightChild;
+        }
+
+
+        private Ref rightChild( final int _key, final int _value ) {
+            int newIndex = allocateNode();
+            long newBits = Node.newNode( _key, _value ).encode();
+            putNodeBits( newIndex, newBits );
+            return rightChild( new Ref( newIndex ) );
+        }
+
+
+        private Ref child( final Dir _side ) {
+            return (_side == Dir.LEFT) ? leftChild() : rightChild();
+        }
+
+
+        private Ref child( final Dir _side, final Ref _newChild ) {
+            return (_side == Dir.LEFT) ? leftChild( _newChild ) : rightChild( _newChild );
+        }
+
+
+        private Ref child( final Dir _side, final int _key, final int _value ) {
+            return (_side == Dir.LEFT) ? leftChild( _key, _value ) : rightChild( _key, _value );
+        }
+
+
+        private boolean isRed() {
+            return (index != NULL) && Node.isRed( bits() );
+        }
+
+
+        private boolean isBlack() {
+            return (index == NULL) || Node.isBlack( bits() );
+        }
+
+
+        private void paintRed() {
+            putNodeBits( index(), Node.paintRed( bits() ) );
+        }
+
+
+        private void paintBlack() {
+            if( notNULL() )
+                putNodeBits( index(), Node.paintBlack( bits() ) );
+        }
+
+
+        private void paintLike( final Ref _x ) {
+            if( _x.isBlack() )
+                paintBlack();
+            else
+                paintRed();
+        }
+
+
+        private Ref root() {
+            return (parent == null) ? this : parent.root();
+        }
+
+
+        private Ref parent() {
+            if( parent == null )
+                throw new IllegalStateException( "Attempted to reference null parent" );
+            return parent;
+        }
+
+
+        private Ref grandparent() {
+            return parent().parent();
+        }
+
+
+        private Ref uncle() {
+            return (parent().whichChild == Dir.LEFT) ? grandparent().rightChild() : grandparent().leftChild();
+        }
+
+
+        public String toString() {
+            return "Ref: " + index;
+        }
+
+
+        @Override
+        public boolean equals( final Object o ) {
+            if( this == o ) return true;
+            if( o == null || getClass() != o.getClass() ) return false;
+
+            Ref ref = (Ref) o;
+
+            return index == ref.index;
+        }
+
+
+        @Override
+        public int hashCode() {
+            return index;
+        }
     }
 
 
@@ -622,6 +817,9 @@ public class TreeIndex implements Index {
 
 
     private int allocateNode() {
+
+        // track the number of used slots...
+        size++;
 
         // first we see if there's a deleted node available...
         if( deletedNodes != NULL ) {
@@ -679,14 +877,32 @@ public class TreeIndex implements Index {
 
 
     private void deleteNode( final int _index ) {
+        size--;
         checkValidOccupiedNode( _index );
         putNodeBits( _index, Node.deleted( deletedNodes ) );
         deletedNodes = _index;
     }
 
 
+    private boolean isBlackIndex( final int _index ) {
+        return (_index == NULL) || Node.isBlack( getNodeBits( _index ) );
+    }
+
+
+    private void paintBlackIndex( final int _index ) {
+        if( _index != NULL ) {
+            putNodeBits( _index, Node.paintBlack( getNodeBits( _index ) ) );
+        }
+    }
+
+
     private enum Dir {
+
         LEFT, RIGHT;
+
+        private Dir oppo() {
+            return (this == LEFT) ? RIGHT : LEFT;
+        }
     }
 
 
@@ -736,6 +952,11 @@ public class TreeIndex implements Index {
         private static final int LEFT_CHILD_OFFSET  = 12;
         private static final int RIGHT_CHILD_OFFSET = 24;
 
+        private static final long REPLACE_KEY_MASK         = ~((long)INDEX_MASK);
+        private static final long REPLACE_VALUE_MASK       = ~((long)VALUE_MASK << VALUE_OFFSET);
+        private static final long REPLACE_LEFT_CHILD_MASK  = ~((long)INDEX_MASK << LEFT_CHILD_OFFSET);
+        private static final long REPLACE_RIGHT_CHILD_MASK = ~((long)INDEX_MASK << RIGHT_CHILD_OFFSET);
+
         private int     key;
         private int     leftChild;
         private int     rightChild;
@@ -775,18 +996,23 @@ public class TreeIndex implements Index {
         }
 
 
+        private static long replaceKey( final long _bits, final int _key ) {
+            return (_bits & REPLACE_KEY_MASK) | _key;
+        }
+
+
         private static long replaceValue( final long _bits, final int _value ) {
-            return (_bits & (~((long)VALUE_MASK << VALUE_OFFSET))) | ((long)_value << VALUE_OFFSET);
+            return (_bits & REPLACE_VALUE_MASK) | ((long)_value << VALUE_OFFSET);
         }
 
 
         private static long replaceLeftChild( final long _bits, final int _leftChild ) {
-            return (_bits & (~((long)INDEX_MASK << LEFT_CHILD_OFFSET))) | ((long)_leftChild << LEFT_CHILD_OFFSET);
+            return (_bits & REPLACE_LEFT_CHILD_MASK) | ((long)_leftChild << LEFT_CHILD_OFFSET);
         }
 
 
         private static long replaceRightChild( final long _bits, final int _rightChild ) {
-            return (_bits & (~((long)INDEX_MASK << RIGHT_CHILD_OFFSET))) | ((long)_rightChild << RIGHT_CHILD_OFFSET);
+            return (_bits & REPLACE_RIGHT_CHILD_MASK) | ((long)_rightChild << RIGHT_CHILD_OFFSET);
         }
 
 

@@ -20,11 +20,15 @@ public class TreeIndexTest {
         Iterator<Integer> si = shuffler.iterator();
         while( si.hasNext() ) {
             int n = si.next();
+
+            if( ti.size() == 6 )
+                hashCode();
+
             ti.put( n, n );
 
             TreeIndex.Stats stats = ti.validate();
             System.out.println( stats );
-            if( !stats.valid )
+            if( !stats.valid || (stats.nodes != ti.size()) )
                 hashCode();
 
             hashCode();
@@ -32,6 +36,49 @@ public class TreeIndexTest {
 
         hashCode();
     }
+
+
+    @Test
+    public void basicDeleteTest() {
+
+        bail: for( int limit = 1; limit < 500; limit++ ) {
+
+            TreeIndex ti = new TreeIndex( 10, 4095 );
+            Shuffler shuffler = new Shuffler( 4095 );
+            Iterator<Integer> si = shuffler.iterator();
+
+            int i = 0;
+            while( si.hasNext() && (i++ < limit)) {
+
+                int n = si.next();
+                ti.put( n, n );
+
+                TreeIndex.Stats stats = ti.validate();
+                //System.out.println( stats );
+
+                if( !stats.valid || (stats.nodes != ti.size()) )
+                    break bail;
+            }
+
+            i = 0;
+            si = shuffler.iterator();
+            while( si.hasNext() && (i++ < limit)) {
+
+                if( (limit == 9) && (i == 5) )
+                    hashCode();
+
+                int n = si.next();
+                ti.remove( n );
+
+                TreeIndex.Stats stats = ti.validate();
+                //System.out.println( stats );
+                if( !stats.valid || (stats.nodes != ti.size()) )
+                    break bail;
+
+            }
+        }
+    }
+
 
     private class Shuffler {
         private final int[] numbers;

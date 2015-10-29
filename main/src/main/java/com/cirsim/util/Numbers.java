@@ -126,7 +126,7 @@ public class Numbers {
     public static int closestBinaryPower( final int _a ) {
 
         if( _a < 1 )
-            throw new IllegalArgumentException( "Negative argument not allowed: " + _a );
+            throw new IllegalArgumentException( "Zero or negative argument not allowed: " + _a );
 
         if( _a > 0x40000000 )
             throw new IllegalArgumentException( "Argument is too large: " + _a );
