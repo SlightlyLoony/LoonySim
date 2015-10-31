@@ -64,21 +64,11 @@ public interface Index {
 
 
     /**
-     * Returns an iterator over the entries in this index, with the given order and filter mode.
-     * <p>
-     * The order mode determines the order that the returned iterator will iterate over the index's entries.  This may be either <i>index</i> order
-     * (which means in numerical index order, <i>0 .. n</i>), or <i>unspecified</i> order (which means any order at all, including <i>index</i>.
-     * Some <code>Vector</code> implementations iterate faster in <i>unspecified</i> order mode.
-     * <p>
-     * The filter mode determines <i>which</i> of this vector's entries the returned iterator will iterate over.  This may be either
-     * <i>unfiltered</i> (which means <i>all</i> entries) or <i>sparse</i> (which means only set, or nonzero, entries).  For sparsely populated
-     * vectors, the <i>sparse</i> filter mode can be significantly faster.
+     * Returns an iterator over the entries in this index.
      *
-     * @param _orderMode the order mode for the returned iterator (either index order or unspecified order)
-     * @param _filterMode the filter mode for the returned iterator (either unfiltered, or set entries)
-     * @return the iterator over this index's entries in the given order and filter mode
+     * @return the iterator over this index's entries
      */
-    IndexIterator iterator( final IndexIteratorOrderMode _orderMode, final IndexIteratorFilterMode _filterMode );
+    IndexIterator iterator();
 
 
     /**

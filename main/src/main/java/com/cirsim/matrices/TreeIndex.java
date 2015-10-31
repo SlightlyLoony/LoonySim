@@ -6,6 +6,17 @@ import java.util.HashSet;
 import static com.cirsim.util.Numbers.closestBinaryPower;
 
 /**
+ * Provides a specialized index intended for vectors and matrices of real numbers, used in circuit simulation applications.  The key for this index
+ * is a 12 bit number, accepting values in the range 0..4094 (0x0..0xFFE).  The value 4095 (0xFFF) is reserved for a null indication.  The values
+ * associated with the keys are 24 bit numbers in the range 0..16,777,214 (0x0..0xFFFFFE).  The value 16,777,215 (0xFFFFFF) is reserved for a null
+ * indication.  The values are used as keys to a store of real numbers (see {@link ValueStore}).
+ * <p>
+ * The implementation is based on a classic red/black tree, with an eye to memory conservation and performance.  The nodes of the tree are stored
+ * in an encoded long, which is in turn stored in an array.  That means that each node consumes just 8 bytes of memory.  When these indices are used
+ * in a matrix, there may be as many as 8,190 of them, each with up to 4,095 entries, for a total of 33,538,050 entries occupying 268,304,400 bytes
+ * (along with a bit of overhead).  The store of real numbers occupies a similar amount of memory.  That total is roughly 15% of what an
+ * implementation based on {@link java.util.TreeMap} would occupy.
+ *
  * @author Tom Dilatush  tom@dilatush.com
  */
 
@@ -118,6 +129,9 @@ public class TreeIndex implements Index {
         if( (_value < 0) || (_value >= VALUE_NULL) )
             throw new IllegalArgumentException( "Value out of range: " + _value );
 
+        if( size >= MAX_ENTRIES )
+            throw new IllegalStateException( "Attempted to add entry that would exceed the maximum size: " + MAX_ENTRIES );
+
         // algorithm below lifted straight from CLR: page 315, but modified to eliminate mirrored code...
 
         // if we already have a node with the given index, just update its value (does the same as CLR:315@1-10)...
@@ -137,29 +151,14 @@ public class TreeIndex implements Index {
         }
 
         // if we get here, then we have to insert a new node where the NULL y reference (returned from search() above) is in the tree...
-        // save the direction of things, based on whether y is the left or right child of its parent...
-        Dir dir = y.whichChild;
 
         // create the new node, store it in the tree, make it y (does the same as CLR:315@11-16)...
-        Ref z = y.parent().child( dir, _key, _value );
-
-        // fix up any violations of our basic principles...
-        putFixup( z );
-
-        return VALUE_NULL;
-    }
-
-
-    private void putFixup( final Ref _z ) {
-
-        Ref z = _z;
-
-        // below is lifted straight from CLR:316, except that the mirrored code has been removed...
+        Ref z = y.parent().child( y.whichChild, _key, _value );
 
         // while z's parent is red (CLR:316@1)...
         while( !z.isTreeRoot() && z.parent().isRed() ) {
 
-            Ref y = z.uncle();
+            y = z.uncle();
             Dir dir = z.parent().whichChild; // controls direction of several things, to remove mirrored code...
 
             // if the uncle is red, we have the simple case 1 (CLR:316@4-8)...
@@ -190,6 +189,8 @@ public class TreeIndex implements Index {
 
         // paint the root black (CLR: page 168, line 18)...
         z.root().paintBlack();
+
+        return VALUE_NULL;
     }
 
 
@@ -321,6 +322,12 @@ public class TreeIndex implements Index {
     }
 
 
+    /**
+     * Returns a reference to the minimum key under the given reference, which <i>may</i> be the given node itself.
+     *
+     * @param _z reference to the node to find the minimum key under
+     * @return a reference to the minimum key uner the given reference
+     */
     private Ref minimum( final Ref _z ) {
         Ref x = _z;
         while( x.leftChild().notNULL() )
@@ -329,15 +336,19 @@ public class TreeIndex implements Index {
     }
 
 
+    /**
+     * Replaces the first given node (and its sub-nodes) with the second given node (and its sub-nodes).
+     *
+     * @param _u the node that will be replaced
+     * @param _v the replacement node
+     */
     private void transplant( final Ref _u, final Ref _v ) {
         if( _u.isTreeRoot() ) {
             treeRoot = _v.index();
             _v.parent = _u.parent;
         }
-        else if( _u.isLeftChild() )
-            _u.parent().leftChild( _v );
         else
-            _u.parent().rightChild( _v );
+            _u.parent().child( _u.whichChild, _v );
     }
 
 
@@ -353,9 +364,8 @@ public class TreeIndex implements Index {
 
 
     /**
-     * Searches the tree for the given key, and returns a reference either the desired node (if it's already present) or to the NULL node where the
-     * desired entry would have been if present.  If we started with an empty tree, this method will create the entry as the tree's root and return a
-     * reference to it.
+     * Searches the tree for the given key, and returns a reference to either the desired node (if it's already present) or to the NULL node where the
+     * desired entry would have been if present.  If we started with an empty tree, a NULL with no parent is returned.
      *
      * @param _key the key to search for
      * @return a reference to either the desired node (if present) or a NULL node in the right place
@@ -379,23 +389,129 @@ public class TreeIndex implements Index {
 
 
     /**
-     * Returns an iterator over the entries in this index, with the given order and filter mode.
-     * <p>
-     * The order mode determines the order that the returned iterator will iterate over the index's entries.  This may be either <i>index</i> order
-     * (which means in numerical index order, <i>0 .. n</i>), or <i>unspecified</i> order (which means any order at all, including <i>index</i>. Some
-     * <code>Vector</code> implementations iterate faster in <i>unspecified</i> order mode.
-     * <p>
-     * The filter mode determines <i>which</i> of this vector's entries the returned iterator will iterate over.  This may be either <i>unfiltered</i>
-     * (which means <i>all</i> entries) or <i>sparse</i> (which means only set, or nonzero, entries).  For sparsely populated vectors, the
-     * <i>sparse</i> filter mode can be significantly faster.
+     * Returns an iterator over the entries in this index.
      *
-     * @param _orderMode  the order mode for the returned iterator (either index order or unspecified order)
-     * @param _filterMode the filter mode for the returned iterator (either unfiltered, or set entries)
-     * @return the iterator over this index's entries in the given order and filter mode
+     * @return the iterator over this index's entries
      */
     @Override
-    public IndexIterator iterator( final IndexIteratorOrderMode _orderMode, final IndexIteratorFilterMode _filterMode ) {
-        return null;
+    public IndexIterator iterator() {
+        return new TreeIndexIterator();
+    }
+
+
+    /**
+     * Implements an {@link IndexIterator} for this class.
+     */
+    private class TreeIndexIterator implements IndexIterator {
+
+        private Ref current;
+        private int value;
+        private int key;
+
+        private TreeIndexIterator() {
+            current = toMinimum( new Ref( treeRoot ) );
+        }
+
+
+        private Ref toMinimum( final Ref _from ) {
+            Ref x = _from;
+            while( x.notNULL() ) {
+                x = x.leftChild();
+            }
+            return x.parent();
+        }
+
+
+        /**
+         * Returns true if and only if this iterator has another entry to return.
+         *
+         * @return true if this iterator has another entry
+         */
+        @Override
+        public boolean hasNext() {
+            return current.notNULL();
+        }
+
+
+        /**
+         * Advances to the next entry in key order.  After invoking this method, the {@link #value()} and {@link #key()} methods will return the values of
+         * that entry.
+         */
+        @Override
+        public void next() {
+
+            if( !hasNext() )
+                throw new IllegalStateException( "Attempted to invoke next() when hasNext() is false" );
+
+            // save our return values at the current position...
+            value = current.value();
+            key = current.key();
+
+            // now advance as required to the next one, if there is one...
+            if( current.rightChild().isNULL() ) {
+
+                // move to the first parent node where we transited a left child link...
+                boolean transitedLeft;
+                do {
+
+                    // if we're about to leave the root node, we're all done...
+                    if( current.parent == null ) {
+                        current = new Ref( NULL );
+                        transitedLeft = true;
+                    }
+
+                    // otherwise move to the parent, and if we transited a left child link then we're done...
+                    else {
+                        transitedLeft = current.isLeftChild();
+                        current = current.parent();
+
+                        // lop off the child we just transited from (to save memory)...
+                        if( transitedLeft )
+                            current.leftChild = null;
+                        else
+                            current.rightChild = null;
+                    }
+
+                } while( !transitedLeft );
+
+            }
+            else {
+                current = toMinimum( current.rightChild() );
+            }
+        }
+
+
+        /**
+         * Returns the value of the entry most recently advanced to through an invocation of {@link #next()}.
+         *
+         * @return the value of the current iterator entry
+         */
+        @Override
+        public int value() {
+            return value;
+        }
+
+
+        /**
+         * Returns the key of the entry most recently advanced to through an invocation of {@link #next()}.
+         *
+         * @return the key of the current iterator entry
+         */
+        @Override
+        public int key() {
+            return key;
+        }
+
+
+        /**
+         * Returns the count of entries that will be returned by this iterator.  This value does not change during iteration.
+         *
+         * @return the count of entries that will be returned by this iterator.
+         */
+        @Override
+        public int entryCount() {
+            return size;
+        }
     }
 
 
@@ -581,6 +697,14 @@ public class TreeIndex implements Index {
     }
 
 
+    /**
+     * Provides a reference to a tree node, with pointers to its parent and children, and a record of whether it's the left or right child of its
+     * parent.  Tree structures built with instances of this class are used ephemerally to represent portions of the tree structure used by
+     * {@link #put(int, int)}, {@link #remove(int)} and their associated methods.  The main purpose of this class is to eliminate the need for
+     * storing parent pointers in the encoded tree structure, thus saving considerable memory (by allowing a node to be encoded into a single long).
+     * A secondary purpose is to provide convenience methods for accessing and changing the encoded node itself, in the process making the higher
+     * level code (particularly in {@link #put(int, int)}, {@link #remove(int)} and their associated methods) much easier to read.
+     */
     private class Ref {
 
         private int index;
@@ -624,11 +748,6 @@ public class TreeIndex implements Index {
         }
 
 
-        private boolean isRightChild() {
-            return whichChild == Dir.RIGHT;
-        }
-
-
         private boolean isNULL() {
             return index == NULL;
         }
@@ -644,6 +763,12 @@ public class TreeIndex implements Index {
         }
 
 
+        /**
+         * Sets the referenced node's value, and returns the previous value.
+         *
+         * @param _value the new value for the referenced node
+         * @return the previous value of the referenced node
+         */
         private int value( final int _value ) {
             long oldBits = bits();
             int oldValue = Node.value( oldBits );
@@ -655,15 +780,6 @@ public class TreeIndex implements Index {
 
         private int key() {
             return Node.key( bits() );
-        }
-
-
-        private int key( final int _key ) {
-            long oldBits = bits();
-            int oldKey = Node.key( oldBits );
-            long newBits = Node.replaceKey( oldBits, _key );
-            putNodeBits( index(), newBits );
-            return oldKey;
         }
 
 
@@ -811,11 +927,6 @@ public class TreeIndex implements Index {
     }
 
 
-    private void putNode( final int _index, final Node _node ) {
-        putNodeBits( _index, _node.encode() );
-    }
-
-
     private int allocateNode() {
 
         // track the number of used slots...
@@ -884,18 +995,6 @@ public class TreeIndex implements Index {
     }
 
 
-    private boolean isBlackIndex( final int _index ) {
-        return (_index == NULL) || Node.isBlack( getNodeBits( _index ) );
-    }
-
-
-    private void paintBlackIndex( final int _index ) {
-        if( _index != NULL ) {
-            putNodeBits( _index, Node.paintBlack( getNodeBits( _index ) ) );
-        }
-    }
-
-
     private enum Dir {
 
         LEFT, RIGHT;
@@ -952,7 +1051,6 @@ public class TreeIndex implements Index {
         private static final int LEFT_CHILD_OFFSET  = 12;
         private static final int RIGHT_CHILD_OFFSET = 24;
 
-        private static final long REPLACE_KEY_MASK         = ~((long)INDEX_MASK);
         private static final long REPLACE_VALUE_MASK       = ~((long)VALUE_MASK << VALUE_OFFSET);
         private static final long REPLACE_LEFT_CHILD_MASK  = ~((long)INDEX_MASK << LEFT_CHILD_OFFSET);
         private static final long REPLACE_RIGHT_CHILD_MASK = ~((long)INDEX_MASK << RIGHT_CHILD_OFFSET);
@@ -973,14 +1071,14 @@ public class TreeIndex implements Index {
         private long encode() {
 
             return isOccupied
-                    ?
-                        (isRed ? COLOR_BIT : 0) |
-                        ((long)value << VALUE_OFFSET) |
-                        ((long)rightChild << RIGHT_CHILD_OFFSET) |
-                        (leftChild << LEFT_CHILD_OFFSET) |
-                        key
-                    :
-                        DELETED_BIT | key;
+                ?
+                    (isRed ? COLOR_BIT : 0) |
+                    ((long)value << VALUE_OFFSET) |
+                    ((long)rightChild << RIGHT_CHILD_OFFSET) |
+                    (leftChild << LEFT_CHILD_OFFSET) |
+                    key
+                :
+                    DELETED_BIT | key;
         }
 
 
@@ -993,11 +1091,6 @@ public class TreeIndex implements Index {
             node.leftChild = NULL;
             node.rightChild = NULL;
             return node;
-        }
-
-
-        private static long replaceKey( final long _bits, final int _key ) {
-            return (_bits & REPLACE_KEY_MASK) | _key;
         }
 
 

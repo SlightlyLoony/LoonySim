@@ -1,5 +1,6 @@
 package com.cirsim.test;
 
+import com.cirsim.matrices.IndexIterator;
 import com.cirsim.matrices.TreeIndex;
 import org.junit.Test;
 
@@ -78,6 +79,36 @@ public class TreeIndexTest {
             }
         }
     }
+
+
+    @Test
+    public void basicIteratorTest() {
+
+        TreeIndex ti = new TreeIndex( 10, 1000 );
+        Shuffler shuffler = new Shuffler( 4095 );
+        Iterator<Integer> si = shuffler.iterator();
+        for( int i = 0; i < 1000; i++ ) {
+            int n = si.next();
+            ti.put( n, n );
+        }
+        TreeIndex.Stats stats = ti.validate();
+        System.out.println( stats );
+
+        int lastKey = -1;
+        IndexIterator ii = ti.iterator();
+        while( ii.hasNext() ) {
+            ii.next();
+            int nextKey = ii.key();
+            int nextVal = ii.value();
+            if( nextKey < lastKey )
+                hashCode();
+            if( nextVal != nextKey )
+                hashCode();
+            System.out.println( "Key: " + nextKey );
+        }
+        hashCode();
+    }
+
 
 
     private class Shuffler {
