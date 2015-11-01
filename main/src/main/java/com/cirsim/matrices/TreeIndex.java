@@ -32,6 +32,9 @@ public class TreeIndex implements Index {
     private static final int MIN_INITIAL_BLOCK_SIZE = 4;  // set low so that sparsely populated trees take little room...
     private static final int MIN_BLOCK_SIZE         = 32; // to keep us from having a block array filled with really tiny blocks on small stores...
 
+    // we assume 64 bit pointers and 8 byte alignment, to be conservative...
+    private static final long MEMORY_FIXED_OVERHEAD = 16 + 9 * 8; // for object overhead, the eight ints, and pointer to the blocks array...
+
     private final int blockOffsetShift;
     private final int blockOffsetMask;
     private final int initialBlockSize;
@@ -526,7 +529,10 @@ public class TreeIndex implements Index {
      */
     @Override
     public long memoryAllocated() {
-        return 0;
+        int blockArray = 8 * blocks.length + 16;  // the first dimension, eight bytes per pointer plus Java's array overhead...
+        for( long[] block : blocks )
+            blockArray += 8 * block.length + 16;  // the second dimension, eight bytes per double plus Java's array overhead...
+        return MEMORY_FIXED_OVERHEAD + blockArray;
     }
 
 
@@ -540,7 +546,7 @@ public class TreeIndex implements Index {
      */
     @Override
     public long memoryUsed() {
-        return 0;
+        return memoryAllocated() - memoryUnused();
     }
 
 
@@ -554,10 +560,17 @@ public class TreeIndex implements Index {
      */
     @Override
     public long memoryUnused() {
-        return 0;
+        return 8 * (blocks.length * blocks[0].length - size);
     }
 
 
+    /**
+     * Rotate tree operation, as described in CLR:312-314, chapter 13.2, except that mirrored functions (for direction) have been replaced with a
+     * single method that takes a direction parameter.
+     *
+     * @param _dir the direction (LEFT or RIGHT) of the rotation
+     * @param _x a reference to the node to be rotated
+     */
     private void rotate( final Dir _dir, final Ref _x ) {
 
         // algorithm lifted from CLR:313...
@@ -582,118 +595,6 @@ public class TreeIndex implements Index {
 
         // make the x the child of y (CLR:313@11-12)...
         y.child( _dir, x );
-    }
-
-
-    /**
-     * Validates the structure of the internal red/black tree and collects some statistics.  This method is intended for testing purposes only, and
-     * may be removed from the API.  Errors found during validation are printed to the system console.
-     *
-     * @return the statistics collected during validation.
-     */
-    @Deprecated
-    public Stats validate() {
-        return (treeRoot == NULL) ? new Stats() : validationWalk( treeRoot, new HashSet<>(), -1 );
-    }
-
-
-    private Stats validationWalk( final int _index, final HashSet<Integer> _circularity, final int _lastKey ) {
-        Node node = getNode( _index );
-        Stats mine = new Stats();
-        Stats left = new Stats();
-        Stats right = new Stats();
-
-        boolean beenHere = _circularity.contains( _index );
-        _circularity.add( _index );
-
-        if( !beenHere ) {
-
-            if( node.leftChild != NULL ) {
-                left = validationWalk( node.leftChild, _circularity, _lastKey );
-                if( node.key < left.key ) {
-                    mine.valid = false;
-                    out( "Child key out of order: " + node.key + " < " + left.key );
-                }
-            } else {
-                if( node.key < _lastKey ) {
-                    mine.valid = false;
-                    out( "My key out of order: " + node.key + " < " + _lastKey );
-                }
-            }
-
-            if( node.rightChild != NULL ) {
-                right = validationWalk( node.rightChild, _circularity, node.key );
-            }
-        }
-
-        mine.isRed = node.isRed;
-        mine.key = node.key;
-        if( node.isRed && (left.isRed || right.isRed) ) {
-            mine.valid = false;
-            out( "Node with key " + node.key + ", at index " + _index + " is red and has at least one red child" );
-        }
-        if( left.blackHeight != right.blackHeight ) {
-            mine.valid = false;
-            out( "Node with key " + node.key + ", at index " + _index + " has mismatched black height in its children (" +
-                left.blackHeight + " and " + right.blackHeight + ")");
-        }
-        if( !(left.valid && right.valid) )
-            mine.valid = false;
-        mine.blackHeight = left.blackHeight + (node.isRed ? 0 : 1);
-        mine.minHeight = 1 + Math.min( left.minHeight, right.minHeight );
-        mine.maxHeight = 1 + Math.max( left.maxHeight, right.maxHeight );
-        mine.reds = left.reds + right.reds + (node.isRed ? 1 : 0);
-        mine.blacks = left.blacks + right.blacks + (node.isRed ? 0 : 1);
-        mine.nodes = 1 + left.nodes + right.nodes;
-        if( beenHere ) {
-            mine.valid = false;
-            out( "Node with key " + node.key + ", at index " + _index + " has a circular reference to it" );
-        }
-
-        return mine;
-    }
-
-
-    private void out( final String _msg ) {
-        System.out.println( _msg );
-    }
-
-
-    public class Stats {
-        public boolean valid = true;
-        public boolean isRed;
-        public int blackHeight = 0;
-        public int minHeight = 0;
-        public int maxHeight = 0;
-        public int reds = 0;
-        public int blacks = 0;
-        public int nodes = 0;
-        public int key = 0;
-
-        public String toString() {
-            StringBuilder sb = new StringBuilder();
-            if( valid ) sb.append( "Valid, " ); else sb.append( "Invalid, " );
-            if( isRed ) sb.append( "red, " ); else sb.append( "black, " );
-            sb.append( "nodes: " );
-            sb.append( nodes );
-            sb.append( ", " );
-            sb.append( "black height: " );
-            sb.append( blackHeight );
-            sb.append( ", " );
-            sb.append( "min height: " );
-            sb.append( minHeight );
-            sb.append( ", " );
-            sb.append( "max height: " );
-            sb.append( maxHeight );
-            sb.append( ", " );
-            sb.append( "black nodes: " );
-            sb.append( blacks );
-            sb.append( ", " );
-            sb.append( "red nodes: " );
-            sb.append( reds );
-            sb.append( "." );
-            return sb.toString();
-        }
     }
 
 
@@ -1169,6 +1070,126 @@ public class TreeIndex implements Index {
             result.isOccupied = isOccupied( _bits );
             result.isRed      = isRed( _bits );
             return result;
+        }
+    }
+
+
+    /*
+     * T E S T   H A R N E S S
+     *
+     * All the following methods are here strictly for testing purposes.  There's no purpose for them in actual use, and they should be avoided
+     * as they may well have signature changes or disappear.  In other words, these are NOT supported API!
+     */
+
+
+    /**
+     * Validates the structure of the internal red/black tree and collects some statistics.  This method is intended for testing purposes only, and
+     * may be removed from the API.  Errors found during validation are printed to the system console.
+     *
+     * @return the statistics collected during validation.
+     */
+    @Deprecated
+    public Stats validate() {
+        return (treeRoot == NULL) ? new Stats() : validationWalk( treeRoot, new HashSet<>(), -1 );
+    }
+
+
+    private Stats validationWalk( final int _index, final HashSet<Integer> _circularity, final int _lastKey ) {
+        Node node = getNode( _index );
+        Stats mine = new Stats();
+        Stats left = new Stats();
+        Stats right = new Stats();
+
+        boolean beenHere = _circularity.contains( _index );
+        _circularity.add( _index );
+
+        if( !beenHere ) {
+
+            if( node.leftChild != NULL ) {
+                left = validationWalk( node.leftChild, _circularity, _lastKey );
+                if( node.key < left.key ) {
+                    mine.valid = false;
+                    out( "Child key out of order: " + node.key + " < " + left.key );
+                }
+            } else {
+                if( node.key < _lastKey ) {
+                    mine.valid = false;
+                    out( "My key out of order: " + node.key + " < " + _lastKey );
+                }
+            }
+
+            if( node.rightChild != NULL ) {
+                right = validationWalk( node.rightChild, _circularity, node.key );
+            }
+        }
+
+        mine.isRed = node.isRed;
+        mine.key = node.key;
+        if( node.isRed && (left.isRed || right.isRed) ) {
+            mine.valid = false;
+            out( "Node with key " + node.key + ", at index " + _index + " is red and has at least one red child" );
+        }
+        if( left.blackHeight != right.blackHeight ) {
+            mine.valid = false;
+            out( "Node with key " + node.key + ", at index " + _index + " has mismatched black height in its children (" +
+                    left.blackHeight + " and " + right.blackHeight + ")");
+        }
+        if( !(left.valid && right.valid) )
+            mine.valid = false;
+        mine.blackHeight = left.blackHeight + (node.isRed ? 0 : 1);
+        mine.minHeight = 1 + Math.min( left.minHeight, right.minHeight );
+        mine.maxHeight = 1 + Math.max( left.maxHeight, right.maxHeight );
+        mine.reds = left.reds + right.reds + (node.isRed ? 1 : 0);
+        mine.blacks = left.blacks + right.blacks + (node.isRed ? 0 : 1);
+        mine.nodes = 1 + left.nodes + right.nodes;
+        if( beenHere ) {
+            mine.valid = false;
+            out( "Node with key " + node.key + ", at index " + _index + " has a circular reference to it" );
+        }
+
+        return mine;
+    }
+
+
+    private void out( final String _msg ) {
+        System.out.println( _msg );
+    }
+
+
+    public class Stats {
+        public boolean valid = true;
+        public boolean isRed;
+        public int blackHeight = 0;
+        public int minHeight = 0;
+        public int maxHeight = 0;
+        public int reds = 0;
+        public int blacks = 0;
+        public int nodes = 0;
+        public int key = 0;
+
+        public String toString() {
+            StringBuilder sb = new StringBuilder();
+            if( valid ) sb.append( "Valid, " ); else sb.append( "Invalid, " );
+            if( isRed ) sb.append( "red, " ); else sb.append( "black, " );
+            sb.append( "nodes: " );
+            sb.append( nodes );
+            sb.append( ", " );
+            sb.append( "black height: " );
+            sb.append( blackHeight );
+            sb.append( ", " );
+            sb.append( "min height: " );
+            sb.append( minHeight );
+            sb.append( ", " );
+            sb.append( "max height: " );
+            sb.append( maxHeight );
+            sb.append( ", " );
+            sb.append( "black nodes: " );
+            sb.append( blacks );
+            sb.append( ", " );
+            sb.append( "red nodes: " );
+            sb.append( reds );
+            sb.append( "." );
+            return sb.toString();
         }
     }
 }

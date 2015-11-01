@@ -40,7 +40,7 @@ public class ExpandingValueStore implements ValueStore {
 
     private int nextSlot;
     private int deletedSlots = NULL;
-    private int unusedSlots;
+    private int size;
 
 
     /**
@@ -82,10 +82,11 @@ public class ExpandingValueStore implements ValueStore {
     @Override
     public int create() {
 
+        size++;
+
         // if we have any deleted slots, return one of them, undeleted...
         if( deletedSlots != NULL ) {
 
-            unusedSlots--;
             int newSlot = deletedSlots;
             int block = newSlot >>> blockOffsetShift;
             int offset = newSlot & offsetMask;
@@ -125,6 +126,8 @@ public class ExpandingValueStore implements ValueStore {
     @Override
     public double delete( final int _key ) {
 
+        size--;
+
         if( (_key < 0) || (_key >= nextSlot))
             throw new IllegalArgumentException( "Key out of range: " + _key );
 
@@ -138,8 +141,6 @@ public class ExpandingValueStore implements ValueStore {
 
         blocks[block][offset] = Double.longBitsToDouble( NAN_EXPONENT | (LONG_SLOT_MASK & deletedSlots) );
         deletedSlots = _key;
-
-        unusedSlots++;
 
         return value;
     }
@@ -238,7 +239,7 @@ public class ExpandingValueStore implements ValueStore {
      */
     @Override
     public long memoryUnused() {
-        return unusedSlots * 8;
+        return 8 * (blocks.length * blocks[0].length - size);
     }
 
 
