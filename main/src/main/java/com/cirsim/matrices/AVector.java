@@ -2,12 +2,19 @@ package com.cirsim.matrices;
 
 import com.cirsim.util.Numbers;
 
+import static com.cirsim.matrices.VectorIteratorFilterMode.SPARSE;
+import static com.cirsim.matrices.VectorIteratorOrderMode.INDEX;
+
 /**
  * Abstract base class for concrete <code>Vector</code> implementations.
  *
  * @author Tom Dilatush  tom@dilatush.com
  */
 public abstract class AVector {
+
+    protected static final Op ADD = new AddOp();
+    protected static final Op SUB = new SubOp();
+    protected static final Op MUL = new MulOp();
 
 
     // defines 1/2 of the delta between between rotation distances in vectorHash()...
@@ -173,5 +180,124 @@ public abstract class AVector {
      */
     public int getEpsilon() {
         return epsilon;
+    }
+
+
+    public Vector subVectorInternal( final int _start, final int _end, final Vector _result ) {
+
+        if( !isValidIndex( _start ) )
+            throw new IndexOutOfBoundsException( "Start index out of bounds: " + _start );
+
+        if( (_end <= _start) || (_end > length()) )
+            throw new IndexOutOfBoundsException( "End index out of bounds: " + _end );
+
+        VectorIterator vi = iterator( INDEX, SPARSE );
+        while( vi.hasNext() ) {
+
+            vi.next();
+
+            if( vi.index() >= _end )
+                break;
+
+            if( vi.index() >= _start )
+                _result.set( vi.index() - _start, vi.value() );
+        }
+
+        return _result;
+    }
+
+
+    public abstract boolean isValidIndex( final int _index );
+
+
+    protected Vector operation( final Vector _other, final Vector _result, final Op _op ) {
+
+        if( !isSameLength( _other ) )
+            throw new IllegalArgumentException( "Vector missing or not the same length" );
+
+        // we have to iterate over BOTH given vectors, as either one could have set entries that the other doesn't have...
+        VectorIterator viThis = iterator( INDEX, SPARSE );
+        VectorIterator viThat = _other.iterator( INDEX, SPARSE );
+
+        boolean haveThis = false;
+        boolean haveThat = false;
+        while( viThat.hasNext() || viThis.hasNext() ) {
+
+            if( !haveThat && viThat.hasNext() ) {
+                viThat.next();
+                haveThat = true;
+            }
+
+            if( !haveThis && viThis.hasNext() ) {
+                viThis.next();
+                haveThis = true;
+            }
+
+            if( viThis.index() == viThat.index() ) {
+                _result.set( viThis.index(), _op.op( viThis.value(), viThat.value() ) );
+                haveThis = haveThat = false;
+            }
+            else if( !haveThat || (viThis.index() < viThat.index()) ) {
+                _result.set( viThis.index(), _op.op( viThis.value(), 0 ) );
+                haveThis = false;
+            }
+            else {
+                _result.set( viThat.index(), _op.op( 0, viThat.value() ) );
+                haveThat = false;
+            }
+        }
+
+        return _result;
+    }
+
+
+    public abstract boolean isSameLength( final Vector _vector );
+
+
+    protected static abstract class Op {
+
+        protected abstract double op( final double _this, final double _that );
+    }
+
+
+    protected static class AddOp extends Op {
+
+        @Override
+        protected double op( final double _this, final double _that ) {
+            return _this + _that;
+        }
+    }
+
+
+    protected static class SubOp extends Op {
+
+        @Override
+        protected double op( final double _this, final double _that ) {
+            return _this - _that;
+        }
+    }
+
+
+    protected static class MulOp extends Op {
+
+        @Override
+        protected double op( final double _this, final double _that ) {
+            return _this * _that;
+        }
+    }
+
+
+    protected static class AddMulOp extends Op {
+
+        protected double multipler;
+
+        protected AddMulOp( final double _multiplier ) {
+            multipler = _multiplier;
+        }
+
+        @Override
+        protected double op( final double _this, final double _that ) {
+            return _this + multipler * _that;
+        }
     }
 }

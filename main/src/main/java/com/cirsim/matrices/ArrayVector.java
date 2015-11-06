@@ -1,6 +1,5 @@
 package com.cirsim.matrices;
 
-import com.cirsim.util.Numbers;
 import sun.plugin.dom.exception.InvalidStateException;
 
 import java.util.Arrays;
@@ -116,18 +115,7 @@ public class ArrayVector extends AVector implements Vector {
      * @return a new vector containing the entry-by-entry sum of this instance and the given vector.
      */
     public Vector add( final Vector _vector ) {
-
-        if( !isSameLength( _vector ) )
-            throw new IllegalArgumentException( "Vector missing or not the same length" );
-
-        ArrayVector result = new ArrayVector( vector.length, epsilon );
-        VectorIterator vi = _vector.iterator( VectorIteratorOrderMode.UNSPECIFIED, VectorIteratorFilterMode.SPARSE );
-        while( vi.hasNext() ) {
-            vi.next();
-            result.vector[vi.index()] = Numbers.addWithZeroDetection( vector[vi.index()], vi.value(), epsilon );
-        }
-
-        return result;
+        return operation( _vector, new ArrayVector( vector.length, epsilon ), ADD );
     }
 
 
@@ -142,18 +130,7 @@ public class ArrayVector extends AVector implements Vector {
      * @return a new vector containing the entry-by-entry difference of this instance and the given vector.
      */
     public Vector subtract( final Vector _vector ) {
-
-        if( !isSameLength( _vector ) )
-            throw new IllegalArgumentException( "Vector missing or not the same length" );
-
-        ArrayVector result = new ArrayVector( vector.length, epsilon );
-        VectorIterator vi = _vector.iterator( VectorIteratorOrderMode.UNSPECIFIED, VectorIteratorFilterMode.SPARSE );
-        while( vi.hasNext() ) {
-            vi.next();
-            result.vector[vi.index()] = Numbers.subtractWithZeroDetection( vector[vi.index()], vi.value(), epsilon );
-        }
-
-        return result;
+        return operation( _vector, new ArrayVector( vector.length, epsilon ), SUB );
     }
 
 
@@ -170,18 +147,7 @@ public class ArrayVector extends AVector implements Vector {
      */
     @Override
     public Vector addMultiple( final Vector _vector, final double _multiplier ) {
-
-        if( !isSameLength( _vector ) )
-            throw new IllegalArgumentException( "Vector missing or not the same length" );
-
-        ArrayVector result = new ArrayVector( vector.length, epsilon );
-        VectorIterator vi = _vector.iterator( VectorIteratorOrderMode.UNSPECIFIED, VectorIteratorFilterMode.SPARSE );
-        while( vi.hasNext() ) {
-            vi.next();
-            result.vector[vi.index()] = Numbers.addWithZeroDetection( vector[vi.index()], vi.value() * _multiplier, epsilon );
-        }
-
-        return result;
+        return operation( _vector, new ArrayVector( vector.length, epsilon ), new AddMulOp( _multiplier ) );
     }
 
 
@@ -237,6 +203,15 @@ public class ArrayVector extends AVector implements Vector {
      */
     public int length() {
         return vector.length;
+    }
+
+
+    /**
+     * Clears all entries in the vector to pure zeros, and releases all memory previously allocated to hold values.
+     */
+    @Override
+    public void clear() {
+        set(0);
     }
 
 
@@ -303,28 +278,6 @@ public class ArrayVector extends AVector implements Vector {
 
 
     /**
-     * Returns a new vector whose entry values are this vector's entry values multiplied by the given multiplier, entry-by-entry.  The vector
-     * implementation class of the result is the same as that of this instance.  In other words, <code>X[n] = T[n] * m</code>, where <code>X</code> is
-     * the returned vector, <code>T</code> is this vector, <code>m</code> is the given multiplier, and <code>n</code> is the set of all index values
-     * <code>0 .. T.length - 1</code>.
-     *
-     * @param _multiplier the multiplier
-     * @return a new vector that is the multiple of this vector, using the given multiplier
-     */
-    public Vector multiply( final double _multiplier ) {
-
-        ArrayVector result = new ArrayVector( vector.length, epsilon );
-
-        VectorIterator vi = iterator( VectorIteratorOrderMode.UNSPECIFIED, VectorIteratorFilterMode.SPARSE );
-        while( vi.hasNext() ) {
-            result.vector[vi.index()] = vector[vi.index()] * _multiplier;
-        }
-
-        return result;
-    }
-
-
-    /**
      * Returns a vector that is a contiguous subvector of this vector.  The given start index must be a valid index for this vector, and the value
      * at the start index will be the first value in the returned vector.  The given end index must be in the range of <code>t .. l</code>, where
      * <code>t</code> is the start index + 1, and <code>l</code> is the length of this vector.  The length of the returned vector is equal to start -
@@ -335,14 +288,7 @@ public class ArrayVector extends AVector implements Vector {
      * @return the subvector
      */
     public Vector subVector( final int _start, final int _end ) {
-
-        if( !isValidIndex( _start ) )
-            throw new IndexOutOfBoundsException( "Start index out of bounds: " + _start );
-
-        if( (_end <= _start) || (_end > vector.length) )
-            throw new IndexOutOfBoundsException( "End index out of bounds: " + _end );
-
-        return new ArrayVector( Arrays.copyOfRange( vector, _start, _end ), epsilon );
+        return subVectorInternal( _start, _end, new ArrayVector( vector.length, epsilon ) );
     }
 
 

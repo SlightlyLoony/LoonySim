@@ -25,7 +25,7 @@ import static com.cirsim.util.Numbers.closestBinaryPower;
  * Leiserson, and Ronald L. Rivest in the third edition, first printing of 2009, ISBN 978-0-262-03384-8, where "xx" is the page number (or range)
  * and "ll" is the line number (or range).
  */
-public class TreeIndex implements Index {
+public class TreeIndex implements Index, MemoryInstrumentation {
 
     public static final int MAX_ENTRIES = 4095;
 
@@ -39,8 +39,8 @@ public class TreeIndex implements Index {
     private final int blockOffsetMask;
     private final int initialBlockSize;
     private final int blockSize;
+    private final long[][] blocks;
 
-    private long[][] blocks;
     private int deletedNodes;
     private int nextSlot;
     private int treeRoot;
@@ -236,23 +236,23 @@ public class TreeIndex implements Index {
         boolean yWasBlack = y.isBlack();
         if( z.leftChild().isNULL() ) {
             x = z.rightChild();
-            transplant( z, z.rightChild() );
+            z.transplant( z.rightChild() );
         }
         else if( z.rightChild().isNULL() ) {
             x = z.leftChild();
-            transplant( z, z.leftChild() );
+            z.transplant( z.leftChild() );
         }
 
         // otherwise we have the more challenging case of z having two children (CLR:324@9-20)...
         else {
-            y = minimum( z.rightChild() );  // finds the minimum node (smallest key) greater than z's key...
+            y = z.rightChild().minimum();  // finds the minimum node (smallest key) greater than z's key...
             yWasBlack = y.isBlack();
             x = y.rightChild();
-            if( !z.equals( y.parent() )){
-                transplant( y, y.rightChild() );
+            if( !z.equals( y.parent() )) {
+                y.transplant( y.rightChild() );
                 y.rightChild( z.rightChild() );
             }
-            transplant( z, y );
+            z.transplant( y );
             y.leftChild( z.leftChild() );
             y.paintLike( z );
         }
@@ -326,36 +326,6 @@ public class TreeIndex implements Index {
 
 
     /**
-     * Returns a reference to the minimum key under the given reference, which <i>may</i> be the given node itself.
-     *
-     * @param _z reference to the node to find the minimum key under
-     * @return a reference to the minimum key uner the given reference
-     */
-    private Ref minimum( final Ref _z ) {
-        Ref x = _z;
-        while( x.leftChild().notNULL() )
-            x = x.leftChild();
-        return x;
-    }
-
-
-    /**
-     * Replaces the first given node (and its sub-nodes) with the second given node (and its sub-nodes).
-     *
-     * @param _u the node that will be replaced
-     * @param _v the replacement node
-     */
-    private void transplant( final Ref _u, final Ref _v ) {
-        if( _u.isTreeRoot() ) {
-            treeRoot = _v.index();
-            _v.parent = _u.parent;
-        }
-        else
-            _u.parent().child( _u.whichChild, _v );
-    }
-
-
-    /**
      * Returns the number of keys (and their associated values) are contained in this index.
      *
      * @return the number of keys (and their associated values) are contained in this index
@@ -363,6 +333,22 @@ public class TreeIndex implements Index {
     @Override
     public int size() {
         return size;
+    }
+
+
+    /**
+     * Clears all entries from this index and releases all memory previously allocated to hold them.
+     */
+    @Override
+    public void clear() {
+
+        for( int i = 0; i < blocks.length; i++ )
+            blocks[i] = null;
+
+        deletedNodes = NULL;
+        nextSlot = 0;
+        treeRoot = NULL;
+        size = 0;
     }
 
 
@@ -802,6 +788,34 @@ public class TreeIndex implements Index {
 
         public String toString() {
             return "Ref: " + index;
+        }
+
+
+        /**
+         * Returns a reference to the minimum key under this reference, which <i>may</i> be this reference itself.
+         *
+         * @return a reference to the minimum key under the given reference
+         */
+        private Ref minimum() {
+            Ref x = this;
+            while( x.leftChild().notNULL() )
+                x = x.leftChild();
+            return x;
+        }
+
+
+        /**
+         * Replaces this node (and its sub-nodes) with the given node (and its sub-nodes).
+         *
+         * @param _v the replacement node
+         */
+        private void transplant( final Ref _v ) {
+            if( isTreeRoot() ) {
+                treeRoot = _v.index();
+                _v.parent = parent;
+            }
+            else
+                parent().child( whichChild, _v );
         }
 
 

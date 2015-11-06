@@ -134,6 +134,15 @@ public class ImmutableVector implements Vector {
 
 
     /**
+     * Clears all entries in the vector to pure zeros, and releases all memory previously allocated to hold values.
+     */
+    @Override
+    public void clear() {
+        vector.clear();
+    }
+
+
+    /**
      * Returns the number of nonzero (or not empty) entries in this vector.  In some implementations this operation may require traversing all the
      * entries in the vector to count the ones that are empty.
      *
@@ -191,21 +200,6 @@ public class ImmutableVector implements Vector {
     @Override
     public Vector deepCopy() {
         return vector.deepCopy();
-    }
-
-
-    /**
-     * Returns a new vector whose entry values are this vector's entry values multiplied by the given multiplier, entry-by-entry.  The vector
-     * implementation class of the result is the same as that of this instance.  In other words, <code>X[n] = T[n] * m</code>, where <code>X</code> is
-     * the returned vector, <code>T</code> is this vector, <code>m</code> is the given multiplier, and <code>n</code> is the set of all index values
-     * <code>0 .. T.length - 1</code>.
-     *
-     * @param _multiplier the multiplier
-     * @return a new vector that is the multiple of this vector, using the given multiplier
-     */
-    @Override
-    public Vector multiply( final double _multiplier ) {
-        return vector.multiply( _multiplier );
     }
 
 

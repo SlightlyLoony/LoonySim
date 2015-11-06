@@ -12,7 +12,7 @@ import static com.cirsim.util.Numbers.closestBinaryPower;
  *
  * @author Tom Dilatush  tom@dilatush.com
  */
-public class ExpandingValueStore implements ValueStore {
+public class ExpandingValueStore implements ValueStore, MemoryInstrumentation {
 
     private static final int MIN_INITIAL_BLOCK_SIZE = 4;  // set low so that sparsely populated vectors take little room...
     private static final int MIN_BLOCK_SIZE         = 32; // to keep us from having a block array filled with really tiny blocks on small stores...
@@ -194,6 +194,19 @@ public class ExpandingValueStore implements ValueStore {
             throw new IllegalArgumentException( "Slot has been deleted: " + _key );
 
         blocks[block][offset] = _value;
+    }
+
+
+    /**
+     * Clears all values from this store and releases all memory previously allocated to hold values.
+     */
+    @Override
+    public void clear() {
+        for( int i = 0; i < blocks.length; i++ )
+            blocks[i] = null;
+        size = 0;
+        nextSlot = 0;
+        deletedSlots = NULL;
     }
 
 

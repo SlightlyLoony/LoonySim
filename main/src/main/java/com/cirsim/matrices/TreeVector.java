@@ -1,29 +1,46 @@
 package com.cirsim.matrices;
 
+import static com.cirsim.matrices.VectorIteratorFilterMode.SPARSE;
+import static com.cirsim.matrices.VectorIteratorOrderMode.INDEX;
+
 /**
  * Implements {@link Vector} based on a compressed vector representation that is especially suited for the sorts of sparse vectors found in circuit
  * simulations, where vectors may be several thousands of entries long, but are under 50% populated (and often as little as 1%).
  *
- * implementation: Red/black tree with two longs per node.  First long has two child indexes (shorts), column index value for this node (short), plus
- * one bit for color (49 bits total).  Second long has raw bits for the double value of this node.  This format "wastes" 15 bits per entry.  Store
- * blocks of "n" nodes in fixed size long arrays.  Store an array of these block arrays, allocated as needed.  Keep a linked list of empty nodes in
- * the empty nodes themselves, and allocate new nodes from them first.  Only when that list is empty allocate from end of block.
- *
- * note on matrix version: use a double store that allocates stores within an expandable array of blocks, much as in the nodes for TreeVector.  Then
- * make separate index red/black trees for an RC index and a CR index (thus allowing fast enumeration of either nonzero columns within a row, or
- * rows within a column).  The data in these red/black trees will be keys into the double store, which need to be 24 bits long.  That means the
- * indices for the rows and columns need to be 12 bits long (we're assuming almost square matrices).  So a node needs two child indices (24 bits
- * each), a R or C index (12 bits), a value key (24 bits), and a color (1 bit).  That adds up to 85 bits, too big for one long, quite wasteful (43
- * bits per node) with two longs.  It could be implemented with 3 ints, wasting 11 bits per node.
- *
  * @author Tom Dilatush  tom@dilatush.com
  */
-public class TreeVector extends AVector implements Vector {
+public class TreeVector extends AVector implements Vector, MemoryInstrumentation {
+
+    private final ExpandingValueStore store;
+    private final TreeIndex index;
+    private final int maxLength;
 
 
+    /**
+     * Creates a new instance of {@link TreeVector} with the given minimum length (number of entries and maximum length, with the default epsilon
+     * (see {@link com.cirsim.util.Numbers#nearlyEqual(double, double, int)}.
+     *
+     * @param _minLength the minimum number of entries to store (used to compute initial storage size)
+     * @param _maxLength the maximum number of entries this vector might have
+     */
+    public TreeVector( final int _minLength, final int _maxLength ) {
+        this( _minLength, _maxLength, MatrixStuff.DEFAULT_EPSILON );
+    }
 
-    public TreeVector( final int _epsilon ) {
+
+    /**
+     * Creates a new instance of {@link TreeVector} with the given minimum length (number of entries, maximum length, and epsilon (see {@link
+     * com.cirsim.util.Numbers#nearlyEqual(double, double, int)}.
+     *
+     * @param _minLength the minimum number of entries to store (used to compute initial storage size)
+     * @param _maxLength the maximum number of entries this vector might have
+     * @param _epsilon the epsilon to use in equality checking
+     */
+    public TreeVector( final int _minLength, final int _maxLength, final int _epsilon ) {
         super( _epsilon );
+        store = new ExpandingValueStore( _minLength, _maxLength );
+        index = new TreeIndex( _minLength, _maxLength );
+        maxLength = _maxLength;
     }
 
 
@@ -38,7 +55,7 @@ public class TreeVector extends AVector implements Vector {
      */
     @Override
     public Vector add( final Vector _vector ) {
-        return null;
+        return operation( _vector, new TreeVector( maxLength, maxLength, epsilon ), ADD );
     }
 
 
@@ -52,7 +69,7 @@ public class TreeVector extends AVector implements Vector {
      */
     @Override
     public Vector subtract( final Vector _vector ) {
-        return null;
+        return operation( _vector, new TreeVector( maxLength, maxLength, epsilon ), SUB );
     }
 
 
@@ -67,7 +84,7 @@ public class TreeVector extends AVector implements Vector {
      */
     @Override
     public Vector addMultiple( final Vector _vector, final double _multiplier ) {
-        return null;
+        return operation( _vector, new TreeVector( maxLength, maxLength, epsilon ), new AddMulOp( _multiplier ) );
     }
 
 
@@ -94,6 +111,29 @@ public class TreeVector extends AVector implements Vector {
     @Override
     public void set( final int _index, final double _value ) {
 
+        if( !isValidIndex( _index ) )
+            throw new IndexOutOfBoundsException( "Vector index out of bounds: " + _index );
+
+        if( _value != MatrixStuff.PURE_ZERO ) {
+            int valueKey = index.get( _index );
+            if( valueKey == TreeIndex.VALUE_NULL ) {
+                valueKey = store.create();
+                store.put( valueKey, _value );
+                index.put( _index, valueKey );
+            }
+            else {
+                store.put( valueKey, _value );
+            }
+            dirty = true;
+        }
+        else {
+            int valueKey = index.get( _index );
+            if( valueKey != TreeIndex.VALUE_NULL ) {
+                index.remove( _index );
+                store.delete( valueKey );
+                dirty = true;
+            }
+        }
     }
 
 
@@ -105,6 +145,26 @@ public class TreeVector extends AVector implements Vector {
     @Override
     public void set( final double _value ) {
 
+        if( _value == MatrixStuff.PURE_ZERO ) {
+            clear();
+            dirty = true;
+        }
+
+        else {
+            for( int i = 0; i < maxLength; i++ ) {
+                set( i, _value );
+            }
+            dirty = true;
+        }
+    }
+
+
+    /**
+     * Clears all entries in the vector to pure zeros, and releases all memory previously allocated to hold values.
+     */
+    public void clear() {
+        store.clear();
+        index.clear();
     }
 
 
@@ -116,7 +176,7 @@ public class TreeVector extends AVector implements Vector {
      */
     @Override
     public int nonZeroEntryCount() {
-        return 0;
+        return index.size();
     }
 
 
@@ -129,7 +189,7 @@ public class TreeVector extends AVector implements Vector {
      */
     @Override
     public boolean isValidIndex( final int _index ) {
-        return false;
+        return (_index >= 0) && (_index < maxLength);
     }
 
 
@@ -141,7 +201,7 @@ public class TreeVector extends AVector implements Vector {
      */
     @Override
     public boolean isSameLength( final int _length ) {
-        return false;
+        return _length == maxLength;
     }
 
 
@@ -153,7 +213,7 @@ public class TreeVector extends AVector implements Vector {
      */
     @Override
     public boolean isSameLength( final Vector _vector ) {
-        return false;
+        return maxLength == _vector.length();
     }
 
 
@@ -165,22 +225,13 @@ public class TreeVector extends AVector implements Vector {
      */
     @Override
     public Vector deepCopy() {
-        return null;
-    }
-
-
-    /**
-     * Returns a new vector whose entry values are this vector's entry values multiplied by the given multiplier, entry-by-entry.  The vector
-     * implementation class of the result is the same as that of this instance.  In other words, <code>X[n] = T[n] * m</code>, where <code>X</code> is
-     * the returned vector, <code>T</code> is this vector, <code>m</code> is the given multiplier, and <code>n</code> is the set of all index values
-     * <code>0 .. T.length - 1</code>.
-     *
-     * @param _multiplier the multiplier
-     * @return a new vector that is the multiple of this vector, using the given multiplier
-     */
-    @Override
-    public Vector multiply( final double _multiplier ) {
-        return null;
+        VectorIterator vi = iterator( INDEX, SPARSE );
+        Vector result = new TreeVector( maxLength, maxLength, epsilon );
+        while( vi.hasNext() ) {
+            vi.next();
+            result.set( vi.index(), vi.value() );
+        }
+        return result;
     }
 
 
@@ -196,7 +247,7 @@ public class TreeVector extends AVector implements Vector {
      */
     @Override
     public Vector subVector( final int _start, final int _end ) {
-        return null;
+        return subVectorInternal( _start, _end, new TreeVector( maxLength, maxLength, epsilon ) );
     }
 
 
@@ -208,7 +259,13 @@ public class TreeVector extends AVector implements Vector {
      */
     @Override
     public double[] toArray() {
-        return new double[0];
+        double[] result = new double[maxLength];
+        VectorIterator vi = iterator( INDEX, SPARSE );
+        while( vi.hasNext() ) {
+            vi.next();
+            result[ vi.index() ] = vi.value();
+        }
+        return result;
     }
 
 
@@ -222,7 +279,7 @@ public class TreeVector extends AVector implements Vector {
      */
     @Override
     public ArrayVector toArrayVector() {
-        return null;
+        return new ArrayVector( this );
     }
 
 
@@ -234,7 +291,7 @@ public class TreeVector extends AVector implements Vector {
      */
     @Override
     public int length() {
-        return 0;
+        return maxLength;
     }
 
 
@@ -256,5 +313,48 @@ public class TreeVector extends AVector implements Vector {
     @Override
     public VectorIterator iterator( final VectorIteratorOrderMode _orderMode, final VectorIteratorFilterMode _filterMode ) {
         return null;
+    }
+
+
+    /**
+     * Returns an <i>estimate</i> of the total bytes of memory that has been allocated by this instance.  The return value is equal to the sum of the
+     * values returned by {@link #memoryUsed()} and {@link #memoryUnused()}.
+     * <p>
+     * This value must be estimated because actual memory consumed is different for different CPU architectures and Java runtime implementations, and
+     * possibly even on flags used to invoke the runtime.
+     *
+     * @return the estimated bytes of memory allocated by this instance
+     */
+    @Override
+    public long memoryAllocated() {
+        return 0;
+    }
+
+
+    /**
+     * Returns an <i>estimate</i> of the total bytes of memory actually in use by this instance.
+     * <p>
+     * This value must be estimated because actual memory consumed is different for different CPU architectures and Java runtime implementations, and
+     * possibly even on flags used to invoke the runtime.
+     *
+     * @return the estimated bytes of memory actually in use by this instance
+     */
+    @Override
+    public long memoryUsed() {
+        return 0;
+    }
+
+
+    /**
+     * Returns an <i>estimate</i> of the total bytes of memory allocated, but not actually in use by this instance.
+     * <p>
+     * This value must be estimated because actual memory consumed is different for different CPU architectures and Java runtime implementations, and
+     * possibly even on flags used to invoke the runtime.
+     *
+     * @return the estimated bytes of memory allocated but not in use by this instance
+     */
+    @Override
+    public long memoryUnused() {
+        return 0;
     }
 }

@@ -4,14 +4,90 @@ import com.cirsim.matrices.IndexIterator;
 import com.cirsim.matrices.TreeIndex;
 import org.junit.Test;
 
-import java.util.Iterator;
-import java.util.NoSuchElementException;
-import java.util.Random;
+import java.util.*;
+
+import static junit.framework.TestCase.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 /**
  * @author Tom Dilatush  tom@dilatush.com
  */
 public class TreeIndexTest {
+
+    private int RANDOM_OP_TEST_RUNTIME_SECONDS = 100;
+    private int RANDOM_OP_TEST_VALIDATE_INTERVAL_MS = 500;
+
+
+    @Test
+    public void randomOpTest() {
+
+        long start = System.currentTimeMillis();
+        long stop = start + RANDOM_OP_TEST_RUNTIME_SECONDS * 1000;
+        Map<Integer, Integer> ref = new TreeMap<>();
+        TreeIndex test = new TreeIndex( 10, 4095 );
+        Random rand = new Random( 85832 );
+        double update = 0.9d;
+        double insert = 0.2d;
+
+        while( stop > System.currentTimeMillis() ) {
+
+            // get a key, randomly...
+            int key = rand.nextInt( 4095 );
+
+            // if it's already in our set, we're either going to delete or update...
+            if( ref.containsKey( key ) ) {
+
+                if( rand.nextDouble() < update ) {
+                    int value = rand.nextInt( 16_777_214 );
+                    ref.put( key, value );
+                    test.put( key, value );
+                }
+                else {
+                    ref.remove( key );
+                    test.remove( key );
+                }
+            }
+
+            // otherwise, we're possibly going to insert it...
+            else {
+                if( rand.nextDouble() < insert ) {
+                    int value = rand.nextInt( 16_777_214 );
+                    ref.put( key, value );
+                    test.put( key, value );
+                }
+            }
+
+            // if it's time for a validation, pause to do that...
+            if( System.currentTimeMillis() >= start + RANDOM_OP_TEST_VALIDATE_INTERVAL_MS ) {
+
+                start += RANDOM_OP_TEST_VALIDATE_INTERVAL_MS;
+
+                assertEquals( ref.size(), test.size() );
+
+                Iterator<Integer> itRef = ref.keySet().iterator();
+                IndexIterator itTest = test.iterator();
+                while( itRef.hasNext() ) {
+
+                    assertTrue( itTest.hasNext() );
+
+                    int refKey = itRef.next();
+                    int refVal = test.get( refKey );
+                    itTest.next();
+                    int testKey = itTest.key();
+                    int testVal = itTest.value();
+                    assertEquals( refKey, testKey );
+                    assertEquals( refVal, testVal );
+                }
+
+                TreeIndex.Stats stats = test.validate();
+                System.out.println( stats );
+                assertTrue( stats.valid );
+            }
+        }
+
+        hashCode();
+    }
+
 
     @Test
     public void basicTest() {

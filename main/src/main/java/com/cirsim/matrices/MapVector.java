@@ -1,6 +1,5 @@
 package com.cirsim.matrices;
 
-import com.cirsim.util.Numbers;
 import sun.plugin.dom.exception.InvalidStateException;
 
 import java.util.Iterator;
@@ -98,18 +97,7 @@ public class MapVector extends AVector implements Vector {
      */
     @Override
     public Vector add( final Vector _vector ) {
-
-        if( !isSameLength( _vector ) )
-            throw new IllegalArgumentException( "Vector missing or not the same length" );
-
-        MapVector result = new MapVector( length, epsilon );
-        VectorIterator vi = _vector.iterator( VectorIteratorOrderMode.UNSPECIFIED, VectorIteratorFilterMode.SPARSE );
-        while( vi.hasNext() ) {
-            vi.next();
-            result.set(vi.index(), Numbers.addWithZeroDetection( get( vi.index() ), vi.value(), epsilon ) );
-        }
-
-        return result;
+        return operation( _vector, new MapVector( length, epsilon ), ADD );
     }
 
 
@@ -123,18 +111,7 @@ public class MapVector extends AVector implements Vector {
      */
     @Override
     public Vector subtract( final Vector _vector ) {
-
-        if( !isSameLength( _vector ) )
-            throw new IllegalArgumentException( "Vector missing or not the same length" );
-
-        MapVector result = new MapVector( length, epsilon );
-        VectorIterator vi = _vector.iterator( VectorIteratorOrderMode.UNSPECIFIED, VectorIteratorFilterMode.SPARSE );
-        while( vi.hasNext() ) {
-            vi.next();
-            result.set(vi.index(), Numbers.subtractWithZeroDetection( get( vi.index() ), vi.value(), epsilon ) );
-        }
-
-        return result;
+        return operation( _vector, new MapVector( length, epsilon ), SUB );
     }
 
 
@@ -149,18 +126,7 @@ public class MapVector extends AVector implements Vector {
      */
     @Override
     public Vector addMultiple( final Vector _vector, final double _multiplier ) {
-
-        if( !isSameLength( _vector ) )
-            throw new IllegalArgumentException( "Vector missing or not the same length" );
-
-        MapVector result = new MapVector( length, epsilon );
-        VectorIterator vi = _vector.iterator( VectorIteratorOrderMode.UNSPECIFIED, VectorIteratorFilterMode.SPARSE );
-        while( vi.hasNext() ) {
-            vi.next();
-            result.set(vi.index(), Numbers.addWithZeroDetection( get( vi.index() ), vi.value() * _multiplier, epsilon ) );
-        }
-
-        return result;
+        return operation( _vector, new MapVector( length, epsilon ), new AddMulOp( _multiplier ) );
     }
 
 
@@ -199,6 +165,10 @@ public class MapVector extends AVector implements Vector {
             vector.put( _index, _value );
             dirty = true;
         }
+        else if( vector.keySet().contains( _index ) ) {
+            vector.remove( _index );
+            dirty = true;
+        }
     }
 
 
@@ -211,7 +181,7 @@ public class MapVector extends AVector implements Vector {
     public void set( final double _value ) {
         if( _value == MatrixStuff.PURE_ZERO ) {
             vector.clear();
-            dirty = false;
+            dirty = true;
         }
 
         else {
@@ -232,6 +202,15 @@ public class MapVector extends AVector implements Vector {
     @Override
     public int length() {
         return length;
+    }
+
+
+    /**
+     * Clears all entries in the vector to pure zeros, and releases all memory previously allocated to hold values.
+     */
+    @Override
+    public void clear() {
+        vector.clear();
     }
 
 
@@ -297,30 +276,6 @@ public class MapVector extends AVector implements Vector {
 
 
     /**
-     * Returns a new vector whose entry values are this vector's entry values multiplied by the given multiplier, entry-by-entry.  The vector
-     * implementation class of the result is the same as that of this instance.  In other words, <code>X[n] = T[n] * m</code>, where <code>X</code> is
-     * the returned vector, <code>T</code> is this vector, <code>m</code> is the given multiplier, and <code>n</code> is the set of all index values
-     * <code>0 .. T.length - 1</code>.
-     *
-     * @param _multiplier the multiplier
-     * @return a new vector that is the multiple of this vector, using the given multiplier
-     */
-    @Override
-    public Vector multiply( final double _multiplier ) {
-
-        MapVector result = new MapVector( length, epsilon );
-
-        VectorIterator vi = iterator( VectorIteratorOrderMode.UNSPECIFIED, VectorIteratorFilterMode.SPARSE );
-        while( vi.hasNext() ) {
-            vi.next();
-            result.set( vi.index(), vi.value() * _multiplier );
-        }
-
-        return result;
-    }
-
-
-    /**
      * Returns a vector that is a contiguous subvector of this vector.  The given start index must be a valid index for this vector, and the value at
      * the start index will be the first value in the returned vector.  The given end index must be in the range of <code>t .. l</code>, where
      * <code>t</code> is the start index + 1, and <code>l</code> is the length of this vector.  The length of the returned vector is equal to start -
@@ -335,21 +290,7 @@ public class MapVector extends AVector implements Vector {
      */
     @Override
     public Vector subVector( final int _start, final int _end ) {
-
-        if( !isValidIndex( _start ) )
-            throw new IndexOutOfBoundsException( "Start index out of bounds: " + _start );
-
-        if( (_end <= _start) || (_end > length) )
-            throw new IndexOutOfBoundsException( "End index out of bounds: " + _end );
-
-        MapVector result = new MapVector( length, epsilon );
-        for( int i = _start; i < _end; i++ ) {
-            Double val = vector.get( i );
-            if( val != null ) {
-                result.set( i, val );
-            }
-        }
-        return result;
+        return subVectorInternal( _start, _end, new MapVector( length, epsilon ) );
     }
 
 
