@@ -329,6 +329,34 @@ public class MapVector extends AVector implements Vector {
 
 
     /**
+     * Returns a <code>MapVector</code> instance that is exactly equivalent to this vector.  If this vector <i>is</i> an instance of
+     * <code>MapVector</code>, then this vector is simply returned.  Otherwise a new instance of <code>MapVector</code> is created that is a copy of
+     * this vector.  The resulting vector will compare with this vector as equal using the <code>equals()</code> method on either instance, and the
+     * result of <code>hashCode()</code> for each will be the same.
+     *
+     * @return a MapVector equivalent to this vector
+     */
+    @Override
+    public MapVector toMapVector() {
+        return this;
+    }
+
+
+    /**
+     * Returns a <code>TreeVector</code> instance that is exactly equivalent to this vector.  If this vector <i>is</i> an instance of
+     * <code>TreeVector</code>, then this vector is simply returned.  Otherwise a new instance of <code>TreeVector</code> is created that is a copy of
+     * this vector.  The resulting vector will compare with this vector as equal using the <code>equals()</code> method on either instance, and the
+     * result of <code>hashCode()</code> for each will be the same.
+     *
+     * @return a TreeVector equivalent to this vector
+     */
+    @Override
+    public TreeVector toTreeVector() {
+        return new TreeVector( this );
+    }
+
+
+    /**
      * Returns a vector iterator over this vector's entries in the given order and filter modes.
      * <p>
      * The order mode determines the order that the returned iterator will iterate over the vector's entries.  This may be either <i>index</i> order

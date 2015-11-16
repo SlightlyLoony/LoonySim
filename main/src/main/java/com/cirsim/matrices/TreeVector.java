@@ -44,6 +44,30 @@ public class TreeVector extends AVector implements Vector, MemoryInstrumentation
     }
 
 
+    /**
+     * Creates a new instance of this class that is equivalent to the given vector.  The new vector will have the same length as the given vector,
+     * its entries will be in the same order and with the same value as those in the given vector, and its epsilon will be the same.  This
+     * constructor is essentially a copy constructor, except that the give vector may be of any class that implements <code>Vector</code>.
+     *
+     * @param _vector the Vector to make a copy of
+     */
+    public TreeVector( final Vector _vector ) {
+        super( (_vector == null) ? 0 : _vector.getEpsilon() );
+
+        if( _vector == null )
+            throw new IllegalArgumentException( "Vector missing" );
+
+        store = new ExpandingValueStore( _vector.length(), _vector.length() );
+        index = new TreeIndex( _vector.length(), _vector.length() );
+        maxLength = _vector.length();
+        VectorIterator vi = _vector.iterator( VectorIteratorOrderMode.UNSPECIFIED, VectorIteratorFilterMode.SPARSE );
+        while( vi.hasNext() ) {
+            vi.next();
+            if( vi.value() != MatrixStuff.PURE_ZERO )
+                set( vi.index(), vi.value() );
+        }
+    }
+
 
     /**
      * Adds the given vector to this vector, entry by entry, returning the sum in a new vector.  The vector implementation class of the result is the
@@ -280,6 +304,34 @@ public class TreeVector extends AVector implements Vector, MemoryInstrumentation
     @Override
     public ArrayVector toArrayVector() {
         return new ArrayVector( this );
+    }
+
+
+    /**
+     * Returns a <code>MapVector</code> instance that is exactly equivalent to this vector.  If this vector <i>is</i> an instance of
+     * <code>MapVector</code>, then this vector is simply returned.  Otherwise a new instance of <code>MapVector</code> is created that is a copy of
+     * this vector.  The resulting vector will compare with this vector as equal using the <code>equals()</code> method on either instance, and the
+     * result of <code>hashCode()</code> for each will be the same.
+     *
+     * @return a MapVector equivalent to this vector
+     */
+    @Override
+    public MapVector toMapVector() {
+        return new MapVector( this );
+    }
+
+
+    /**
+     * Returns a <code>TreeVector</code> instance that is exactly equivalent to this vector.  If this vector <i>is</i> an instance of
+     * <code>TreeVector</code>, then this vector is simply returned.  Otherwise a new instance of <code>TreeVector</code> is created that is a copy of
+     * this vector.  The resulting vector will compare with this vector as equal using the <code>equals()</code> method on either instance, and the
+     * result of <code>hashCode()</code> for each will be the same.
+     *
+     * @return a TreeVector equivalent to this vector
+     */
+    @Override
+    public TreeVector toTreeVector() {
+        return this;
     }
 
 

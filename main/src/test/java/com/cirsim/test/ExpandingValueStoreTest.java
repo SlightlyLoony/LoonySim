@@ -1,17 +1,17 @@
 package com.cirsim.test;
 
 import com.cirsim.matrices.ExpandingValueStore;
-import com.cirsim.matrices.ValueStore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
 
-import static junit.framework.Assert.assertTrue;
-import static junit.framework.TestCase.assertEquals;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 /**
  * @author Tom Dilatush  tom@dilatush.com
  */
+@SuppressWarnings("deprecation")
 public class ExpandingValueStoreTest {
 
     @Rule
@@ -21,7 +21,7 @@ public class ExpandingValueStoreTest {
     @Test
     public void simpleFillAndVerify() throws Exception {
 
-        ValueStore vs = new ExpandingValueStore( 5, 1000 );
+        ExpandingValueStore vs = new ExpandingValueStore( 5, 1000 );
         int[] handles = new int[1000];
         for( int i = 0; i < 1000; i++) {
             handles[i] = vs.create();

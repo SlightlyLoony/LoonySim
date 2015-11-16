@@ -30,14 +30,6 @@ public class JaVectorTest extends TestCase {
     }
 
 
-    @Test
-    public void testMultiply() throws Exception {
-        ArrayVector a = new ArrayVector( new double[] { 1.1, 0, 0, 1.2, 1.3 }, 10 );
-        Vector b = a.multiply( 0.5 );
-        hashCode();
-    }
-
-
     public void testSubtract() throws Exception {
 
     }
